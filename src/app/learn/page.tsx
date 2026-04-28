@@ -10,12 +10,12 @@ import { useTTS } from "@/lib/useTTS";
 import type { Word } from "@/lib/types";
 
 const REVIEW_INTERVALS = [
-  0,
-  10,
-  1440,
-  4320,
-  10080,
-  20160,
+  0,    // Level 0: 즉시
+  60,   // Level 1: 1시간 후 (60분)
+  1440, // Level 2: 1일 후 (1440분)
+  4320, // Level 3: 3일 후 (4320분)
+  10080,// Level 4: 7일 후 (10080분)
+  20160,// Level 5: 14일 후 (20160분)
 ];
 
 type Step = 1 | 2;
