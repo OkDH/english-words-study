@@ -2,16 +2,22 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { Word } from "@/lib/types";
 
 const PAGE_SIZE = 30;
+const USERS = [
+  { id: "dong", name: "동현", emoji: "👨" },
+  { id: "suyeon", name: "수연", emoji: "👩" },
+];
 
 export default function HomePage() {
+  const router = useRouter();
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [learnCount, setLearnCount] = useState(20);
   const [learnMode, setLearnMode] = useState<"review" | "shuffle" | "deep">("review");
@@ -21,19 +27,47 @@ export default function HomePage() {
   const observerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchAllWords();
+    const storedUser = localStorage.getItem("selectedUser");
+    if (storedUser) {
+      setSelectedUser(storedUser);
+    }
+    setLoading(false);
   }, []);
 
-  const fetchAllWords = async () => {
+useEffect(() => {
+    if (selectedUser) {
+      fetchWordsWithProgress();
+    }
+  }, [selectedUser]);
+
+  const selectUser = (userId: string) => {
+    setSelectedUser(userId);
+    localStorage.setItem("selectedUser", userId);
+  };
+
+  const fetchWordsWithProgress = async () => {
     setLoading(true);
+    const userId = localStorage.getItem("selectedUser") || "dong";
+
     const { data, count } = await supabase
       .from("words")
       .select("*", { count: "exact" })
       .order("created_at", { ascending: false });
 
+    const { data: progress } = await supabase
+      .from("user_word_progress")
+      .select("*")
+      .eq("user_id", userId);
+
     if (data) {
-      setAllWords(data);
-      setWords(data.slice(0, PAGE_SIZE));
+      const progressMap = new Map(progress?.map(p => [p.word_id, p]) || []);
+      const wordsWithProgress = data.map(w => ({
+        ...w,
+        level: progressMap.get(w.id)?.level || 0,
+        next_review: progressMap.get(w.id)?.next_review || w.next_review,
+      }));
+      setAllWords(wordsWithProgress);
+      setWords(wordsWithProgress.slice(0, PAGE_SIZE));
       setTotalCount(count || 0);
       setHasMore(data.length > PAGE_SIZE);
     }
@@ -41,13 +75,12 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    if (!observerRef.current || !hasMore || loadingMore || isSearching) return;
+    if (!observerRef.current || !hasMore || isSearching) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !isSearching) {
-          const nextPage = Math.floor(words.length / PAGE_SIZE);
-          const nextWords = allWords.slice(0, (nextPage + 1) * PAGE_SIZE);
+        if (entries[0].isIntersecting && hasMore && !isSearching) {
+          const nextWords = allWords.slice(0, words.length + PAGE_SIZE);
           setWords(nextWords);
           setHasMore(nextWords.length < allWords.length);
         }
@@ -57,7 +90,7 @@ export default function HomePage() {
 
     observer.observe(observerRef.current);
     return () => observer.disconnect();
-  }, [hasMore, loadingMore, words.length, allWords.length, isSearching]);
+  }, [hasMore, isSearching, words.length, allWords.length]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -101,18 +134,55 @@ export default function HomePage() {
     (w) => new Date(w.next_review) <= new Date()
   ).length;
 
+  const currentUser = USERS.find(u => u.id === selectedUser);
+
+  if (!selectedUser) {
+    return (
+      <main className="min-h-screen p-4 flex flex-col items-center justify-center">
+        <h1 className="text-3xl font-bold text-primary mb-8">Word Study</h1>
+        <p className="text-slate-500 mb-6">사용자를 선택하세요</p>
+        <div className="flex gap-4">
+          {USERS.map(user => (
+            <button
+              key={user.id}
+              onClick={() => selectUser(user.id)}
+              className="w-32 h-32 text-4xl bg-white dark:bg-slate-800 rounded-2xl shadow-lg hover:scale-105 transition-transform flex flex-col items-center justify-center"
+            >
+              <span className="text-5xl mb-2">{user.emoji}</span>
+              <span className="text-lg font-bold">{user.name}</span>
+            </button>
+          ))}
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen p-4 pb-24">
       <header className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-primary">Word Study</h1>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">{currentUser?.emoji}</span>
+            <h1 className="text-2xl font-bold text-primary">{currentUser?.name}</h1>
+          </div>
           <p className="text-sm text-slate-500">
             {isSearching ? `"${searchQuery}" 검색 결과: ${words.length}개` : `${totalCount}개 단어 · ${dueCount}개 복습 필요`}
           </p>
         </div>
-        <Link href="/dashboard" className="text-primary font-medium">
-          📊 대시보드
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              localStorage.removeItem("selectedUser");
+              setSelectedUser(null);
+            }}
+            className="text-2xl"
+          >
+            🔄
+          </button>
+          <Link href="/dashboard" className="text-2xl">
+            📊
+          </Link>
+        </div>
       </header>
 
       {loading ? (
@@ -188,7 +258,7 @@ export default function HomePage() {
                 learnMode === "deep" ? "bg-purple-500 text-white" : "bg-primary text-white"
               }`}
             >
-              학습 시작하기 {learnMode === "review" && dueCount > 0 && `(${dueCount})`}
+              시작 {learnMode === "review" && dueCount > 0 && `(${dueCount})`}
             </Link>
           </div>
 
@@ -256,7 +326,7 @@ export default function HomePage() {
 
             {hasMore && (
               <div ref={observerRef} className="py-4 text-center text-slate-500">
-                {loadingMore ? "더 불러오는 중..." : "스크롤하여 더보기"}
+                더보기
               </div>
             )}
           </div>

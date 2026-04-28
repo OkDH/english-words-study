@@ -36,6 +36,8 @@ export default function AddPage() {
       generateExample(word.trim()),
     ]);
 
+    const userId = localStorage.getItem("selectedUser") || "dong";
+
     const { error } = await supabase.from("words").insert({
       word: word.trim(),
       meaning: meaning.trim(),

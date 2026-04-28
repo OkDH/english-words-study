@@ -40,14 +40,23 @@ export default function DashboardPage() {
   }, []);
 
   async function fetchDashboardData() {
+    const userId = localStorage.getItem("selectedUser") || "dong";
+
     const { data: words } = await supabase
       .from("words")
       .select("*")
+      .eq("user_id", userId)
       .order("created_at", { ascending: true });
+
+    const { data: progress } = await supabase
+      .from("user_word_progress")
+      .select("*")
+      .eq("user_id", userId);
 
     const { data: logs } = await supabase
       .from("learning_logs")
       .select("*")
+      .eq("user_id", userId)
       .order("created_at", { ascending: true });
 
     if (!words) {
@@ -56,13 +65,14 @@ export default function DashboardPage() {
     }
 
     const now = new Date();
+    const progressMap = new Map(progress?.map(p => [p.word_id, p]) || []);
 
     const totalWords = words.length;
-    const masteredWords = words.filter(w => w.level >= 5).length;
+    const masteredWords = progress?.filter(p => p.level >= 5).length || 0;
 
     const wordsByLevel = [0, 1, 2, 3, 4, 5].map(level => ({
       level,
-      count: words.filter(w => w.level === level).length,
+      count: progress?.filter(p => p.level === level).length || 0,
     }));
 
     const growthData: { date: string; count: number }[] = [];
@@ -107,10 +117,10 @@ export default function DashboardPage() {
       const date = subDays(now, -i);
       const start = startOfDay(date);
       const end = endOfDay(date);
-      const count = words.filter(w => {
-        const nextReview = new Date(w.next_review);
+      const count = progress?.filter(p => {
+        const nextReview = new Date(p.next_review);
         return nextReview >= start && nextReview <= end;
-      }).length;
+      }).length || 0;
       const dateLabel = i === 0 ? "Today" : i === 1 ? "Tomorrow" : format(date, "EEE");
       forecast.push({
         date: dateLabel,
@@ -170,8 +180,12 @@ export default function DashboardPage() {
     <main className="min-h-screen p-4 pb-24">
       <header className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-primary">Word Study</h1>
-          <p className="text-sm text-slate-500">대시보드</p>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">{localStorage.getItem("selectedUser") === "suyeon" ? "👩" : "👨"}</span>
+            <h1 className="text-2xl font-bold text-primary">
+              {localStorage.getItem("selectedUser") === "suyeon" ? "수연" : "동현"} Dashboard
+            </h1>
+          </div>
         </div>
         <button
           onClick={() => router.push("/")}

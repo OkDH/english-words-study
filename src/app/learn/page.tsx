@@ -10,12 +10,12 @@ import { useTTS } from "@/lib/useTTS";
 import type { Word } from "@/lib/types";
 
 const REVIEW_INTERVALS = [
-  0,      // Level 0: 즉시
-  10,     // Level 1: 10분 후
-  1440,   // Level 2: 1일 후 (1440분)
-  4320,   // Level 3: 3일 후 (4320분)
-  10080,  // Level 4: 7일 후 (10080분)
-  20160,  // Level 5: 14일 후 (20160분)
+  0,
+  10,
+  1440,
+  4320,
+  10080,
+  20160,
 ];
 
 type Step = 1 | 2;
@@ -51,6 +51,8 @@ function LearnContent() {
   }, [learnMode]);
 
   async function fetchWords() {
+    const userId = localStorage.getItem("selectedUser") || "dong";
+
     if (learnMode === "shuffle") {
       const { data } = await supabase
         .from("words")
@@ -69,7 +71,6 @@ function LearnContent() {
       const { data } = await supabase
         .from("words")
         .select("*")
-        .gte("level", 4)
         .limit(30);
 
       if (data && data.length > 0) {
@@ -85,27 +86,61 @@ function LearnContent() {
 
     const now = new Date().toISOString();
 
-    const { data: dueWords } = await supabase
-      .from("words")
-      .select("*")
-      .or(`next_review.lte.${now},level.eq.0`)
-      .order("next_review", { ascending: true });
+    const { data: dueProgress } = await supabase
+      .from("user_word_progress")
+      .select("word_id, level, next_review")
+      .eq("user_id", userId)
+      .or(`next_review.lte.${now},level.eq.0`);
 
-    if (dueWords && dueWords.length >= learnCount) {
-      setWords(dueWords.slice(0, learnCount));
+    if (dueProgress && dueProgress.length >= learnCount) {
+      const wordIds = dueProgress.slice(0, learnCount).map(p => p.word_id);
+      const { data: dueWords } = await supabase
+        .from("words")
+        .select("*")
+        .in("id", wordIds);
+      const progressMap = new Map(dueProgress.map(p => [p.word_id, p]));
+      const wordsWithProgress = dueWords?.map(w => ({
+        ...w,
+        level: progressMap.get(w.id)?.level || 0,
+        next_review: progressMap.get(w.id)?.next_review,
+      })) || [];
+      setWords(wordsWithProgress);
       setLoading(false);
       return;
     }
 
-    const { data: otherWords } = await supabase
-      .from("words")
-      .select("*")
-      .not("id", "in", dueWords?.map(w => w.id) || [])
-      .order("level", { ascending: true })
-      .limit(learnCount - (dueWords?.length || 0));
+    const { data: allProgress } = await supabase
+      .from("user_word_progress")
+      .select("word_id, level, next_review")
+      .eq("user_id", userId)
+      .order("level", { ascending: true });
 
-    const allWords = [...(dueWords || []), ...(otherWords || [])];
-    setWords(allWords.slice(0, learnCount));
+    if (allProgress && allProgress.length > 0) {
+      const wordIds = allProgress.map(p => p.word_id);
+      const { data: allWords } = await supabase
+        .from("words")
+        .select("*")
+        .in("id", wordIds);
+
+      const wordMap = new Map(allWords?.map(w => [w.id, w]) || []);
+      const progressMap = new Map(allProgress.map(p => [p.word_id, p]));
+      const sortedWords = allProgress
+        .filter(p => wordMap.has(p.word_id))
+        .slice(0, learnCount)
+        .map(p => ({
+          ...wordMap.get(p.word_id)!,
+          level: p.level,
+          next_review: p.next_review,
+        }));
+
+      setWords(sortedWords);
+    } else {
+      const { data } = await supabase
+        .from("words")
+        .select("*")
+        .limit(learnCount);
+      setWords(data || []);
+    }
     setLoading(false);
   }
 
@@ -133,16 +168,19 @@ function LearnContent() {
   const currentWord = words[currentIndex];
 
   async function logLearning(wordId: string, wordText: string, action: "learned" | "forgot") {
+    const userId = localStorage.getItem("selectedUser") || "dong";
     await supabase.from("learning_logs").insert({
       word_id: wordId,
       word_text: wordText,
       action,
+      user_id: userId,
     });
   }
 
-  const handleSwipe = useCallback(
+const handleSwipe = useCallback(
     async (known: boolean) => {
       if (!currentWord) return;
+      const userId = localStorage.getItem("selectedUser") || "dong";
 
       if (learnMode === "review") {
         const newLevel = known ? Math.min(currentWord.level + 1, 5) : 0;
@@ -150,23 +188,28 @@ function LearnContent() {
         const nextReview = new Date();
         nextReview.setMinutes(nextReview.getMinutes() + minutes);
 
-        await Promise.all([
-          supabase
-            .from("words")
-            .update({
-              level: newLevel,
-              next_review: nextReview.toISOString(),
-            })
-            .eq("id", currentWord.id),
-          logLearning(currentWord.id, currentWord.word, known ? "learned" : "forgot"),
-        ]);
-      } else {
-        logLearning(currentWord.id, currentWord.word, known ? "learned" : "forgot");
+        const { error } = await supabase
+          .from("user_word_progress")
+          .update({
+            level: newLevel,
+            next_review: nextReview.toISOString(),
+          })
+          .eq("user_id", userId)
+          .eq("word_id", currentWord.id);
+
+        console.log("Update result:", error);
+
+        setWords(words.map(w =>
+          w.id === currentWord.id
+            ? { ...w, level: newLevel, next_review: nextReview.toISOString() }
+            : w
+        ));
       }
 
+      logLearning(currentWord.id, currentWord.word, known ? "learned" : "forgot");
       moveToNext();
     },
-    [currentWord, learnMode]
+    [currentWord, learnMode, words]
   );
 
   const handleGenerateHint = useCallback(async () => {
@@ -221,7 +264,7 @@ function LearnContent() {
   async function handleDontKnow() {
     if (!showHint) {
       setGeneratingHintContent(true);
-      
+
       const [image, example] = await Promise.all([
         searchImage(currentWord?.word || ""),
         generateExample(currentWord?.word || "")
