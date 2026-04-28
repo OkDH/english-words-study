@@ -1,38 +1,103 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { Word } from "@/lib/types";
 
+const PAGE_SIZE = 30;
+
 export default function HomePage() {
   const [words, setWords] = useState<Word[]>([]);
+  const [allWords, setAllWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [learnCount, setLearnCount] = useState(20);
   const [learnMode, setLearnMode] = useState<"review" | "shuffle" | "deep">("review");
+  const [totalCount, setTotalCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const observerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchWords();
+    fetchAllWords();
   }, []);
 
-  async function fetchWords() {
-    const { data, error } = await supabase
+  const fetchAllWords = async () => {
+    setLoading(true);
+    const { data, count } = await supabase
       .from("words")
-      .select("*")
+      .select("*", { count: "exact" })
       .order("created_at", { ascending: false });
 
-    if (!error && data) {
-      setWords(data);
+    if (data) {
+      setAllWords(data);
+      setWords(data.slice(0, PAGE_SIZE));
+      setTotalCount(count || 0);
+      setHasMore(data.length > PAGE_SIZE);
     }
     setLoading(false);
-  }
+  };
+
+  useEffect(() => {
+    if (!observerRef.current || !hasMore || loadingMore || isSearching) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !isSearching) {
+          const nextPage = Math.floor(words.length / PAGE_SIZE);
+          const nextWords = allWords.slice(0, (nextPage + 1) * PAGE_SIZE);
+          setWords(nextWords);
+          setHasMore(nextWords.length < allWords.length);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(observerRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, words.length, allWords.length, isSearching]);
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+
+    if (query.length === 0) {
+      setIsSearching(false);
+      setWords(allWords.slice(0, PAGE_SIZE));
+      setHasMore(allWords.length > PAGE_SIZE);
+    } else if (query.length < 2) {
+      setIsSearching(false);
+      setWords([]);
+    } else {
+      setIsSearching(true);
+      const filtered = allWords.filter(
+        w => w.word.toLowerCase().includes(query.toLowerCase()) ||
+             w.meaning.toLowerCase().includes(query.toLowerCase())
+      );
+      setWords(filtered);
+      setHasMore(false);
+    }
+  };
 
   async function deleteWord(id: string) {
     await supabase.from("words").delete().eq("id", id);
-    setWords(words.filter((w) => w.id !== id));
+    const newAllWords = allWords.filter(w => w.id !== id);
+    setAllWords(newAllWords);
+    setTotalCount(prev => prev - 1);
+
+    if (isSearching) {
+      setWords(newAllWords.filter(
+        w => w.word.toLowerCase().includes(searchQuery.toLowerCase()) ||
+             w.meaning.toLowerCase().includes(searchQuery.toLowerCase())
+      ));
+    } else {
+      setWords(newAllWords.slice(0, PAGE_SIZE));
+      setHasMore(newAllWords.length > PAGE_SIZE);
+    }
   }
 
-  const dueCount = words.filter(
+  const dueCount = allWords.filter(
     (w) => new Date(w.next_review) <= new Date()
   ).length;
 
@@ -42,7 +107,7 @@ export default function HomePage() {
         <div>
           <h1 className="text-2xl font-bold text-primary">Word Study</h1>
           <p className="text-sm text-slate-500">
-            {words.length}개 단어 · {dueCount}개 복습 필요
+            {isSearching ? `"${searchQuery}" 검색 결과: ${words.length}개` : `${totalCount}개 단어 · ${dueCount}개 복습 필요`}
           </p>
         </div>
         <Link href="/dashboard" className="text-primary font-medium">
@@ -52,7 +117,7 @@ export default function HomePage() {
 
       {loading ? (
         <div className="text-center py-12 text-slate-500">로딩 중...</div>
-      ) : words.length === 0 ? (
+      ) : allWords.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-slate-500 mb-4">아직 단어가 없어요</p>
           <Link
@@ -64,6 +129,16 @@ export default function HomePage() {
         </div>
       ) : (
         <>
+          <div className="mb-3">
+            <input
+              type="text"
+              placeholder="단어 검색..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full p-3 border rounded-xl bg-white dark:bg-slate-800"
+            />
+          </div>
+
           <div className="mb-4 flex gap-2">
             <select
               value={learnCount}
@@ -126,7 +201,7 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="h-[calc(100vh-280px)] overflow-y-auto space-y-3">
+          <div className="h-[calc(100vh-340px)] overflow-y-auto space-y-3">
             {words.map((word) => (
               <div
                 key={word.id}
@@ -178,6 +253,12 @@ export default function HomePage() {
                 </div>
               </div>
             ))}
+
+            {hasMore && (
+              <div ref={observerRef} className="py-4 text-center text-slate-500">
+                {loadingMore ? "더 불러오는 중..." : "스크롤하여 더보기"}
+              </div>
+            )}
           </div>
         </>
       )}

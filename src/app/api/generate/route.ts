@@ -21,7 +21,13 @@ export async function POST(request: Request) {
       prompt = `Write a short English paragraph (2-3 sentences) using these words: ${words}. Make it natural, easy to understand, and make sure to use ALL the words provided. Just write the paragraph, nothing else.`;
       maxTokens = 150;
     } else {
-      prompt = `Create a short, natural English sentence using the word "${word}". The sentence should be memorable and personal. Keep it under 80 characters. Format: "English sentence (한글 의미)" - so the Korean meaning goes in parentheses at the end. Only respond with the sentence, nothing else.`;
+      const sentenceStyles = [
+        `Create a short, memorable English sentence using the word "${word}". Use one of these styles randomly: 1) A conversation between friends 2) A social media post 3) A diary entry 4) A news headline. Keep it under 80 characters. Format: "English sentence (한글 의미)"`,
+        `Make a catchy English sentence with "${word}" like you'd see on Instagram or a blog. Make it sound natural and relatable. Keep it under 80 characters. Format: "English sentence (한글 의미)"`,
+        `Write a casual English sentence using "${word}" as if you're texting a friend. Include emotions or reactions. Keep it under 80 characters. Format: "English sentence (한글 의미)"`,
+        `Create a vivid English sentence with "${word}" that paints a picture in your mind. Make it descriptive and memorable. Keep it under 80 characters. Format: "English sentence (한글 의미)"`,
+      ];
+      prompt = sentenceStyles[Math.floor(Math.random() * sentenceStyles.length)];
       maxTokens = 80;
     }
 

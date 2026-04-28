@@ -53,7 +53,8 @@ export default function AddPage() {
 
   return (
     <main className="min-h-screen p-4">
-      <header className="mb-6">
+      <header className="mb-6 flex items-center gap-4">
+        <button onClick={() => router.push("/")} className="text-2xl">←</button>
         <h1 className="text-2xl font-bold">새 단어 추가</h1>
       </header>
 
