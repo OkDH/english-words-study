@@ -1,0 +1,508 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { motion, AnimatePresence, useMotionValue } from "framer-motion";
+import { supabase } from "@/lib/supabase";
+import { generateExample, generatePassage } from "@/lib/groq";
+import { searchImage } from "@/lib/unsplash";
+import { useTTS } from "@/lib/useTTS";
+import type { Word } from "@/lib/types";
+
+const REVIEW_INTERVALS = [
+  0,      // Level 0: 즉시
+  10,     // Level 1: 10분 후
+  1440,   // Level 2: 1일 후 (1440분)
+  4320,   // Level 3: 3일 후 (4320분)
+  10080,  // Level 4: 7일 후 (10080분)
+  20160,  // Level 5: 14일 후 (20160분)
+];
+
+type Step = 1 | 2;
+type Mode = "review" | "shuffle" | "deep";
+
+interface Passage {
+  text: string;
+  words: Word[];
+}
+
+export default function LearnPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const learnCount = Number(searchParams.get("count") || "20");
+  const learnMode = (searchParams.get("mode") as Mode) || "review";
+
+  const [words, setWords] = useState<Word[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [step, setStep] = useState<Step>(1);
+  const [loading, setLoading] = useState(true);
+  const [generatingHint, setGeneratingHint] = useState(false);
+  const [passage, setPassage] = useState<Passage | null>(null);
+  const [generatingPassage, setGeneratingPassage] = useState(false);
+  const [hintImage, setHintImage] = useState<string | null>(null);
+  const [hintExample, setHintExample] = useState<string | null>(null);
+  const [showHint, setShowHint] = useState(false);
+  const [generatingHintContent, setGeneratingHintContent] = useState(false);
+  const x = useMotionValue(0);
+  const { speak, stop } = useTTS();
+
+  useEffect(() => {
+    fetchWords();
+  }, [learnMode]);
+
+  async function fetchWords() {
+    if (learnMode === "shuffle") {
+      const { data } = await supabase
+        .from("words")
+        .select("*")
+        .limit(learnCount);
+
+      if (data && data.length > 0) {
+        const shuffled = [...data].sort(() => Math.random() - 0.5);
+        setWords(shuffled);
+      }
+      setLoading(false);
+      return;
+    }
+
+    if (learnMode === "deep") {
+      const { data } = await supabase
+        .from("words")
+        .select("*")
+        .gte("level", 4)
+        .limit(30);
+
+      if (data && data.length > 0) {
+        const shuffled = [...data].sort(() => Math.random() - 0.5);
+        setWords(shuffled);
+        generatePassageFromWords(shuffled.slice(0, 5));
+      } else {
+        setWords([]);
+      }
+      setLoading(false);
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    const { data: dueWords } = await supabase
+      .from("words")
+      .select("*")
+      .or(`next_review.lte.${now},level.eq.0`)
+      .order("next_review", { ascending: true });
+
+    if (dueWords && dueWords.length >= learnCount) {
+      setWords(dueWords.slice(0, learnCount));
+      setLoading(false);
+      return;
+    }
+
+    const { data: otherWords } = await supabase
+      .from("words")
+      .select("*")
+      .not("id", "in", dueWords?.map(w => w.id) || [])
+      .order("level", { ascending: true })
+      .limit(learnCount - (dueWords?.length || 0));
+
+    const allWords = [...(dueWords || []), ...(otherWords || [])];
+    setWords(allWords.slice(0, learnCount));
+    setLoading(false);
+  }
+
+  async function generatePassageFromWords(selectedWords: Word[]) {
+    if (selectedWords.length < 3) {
+      setPassage({ text: "심화 학습에는 최소 3개 이상의 레벨 4 이상 단어가 필요합니다.", words: [] });
+      return;
+    }
+
+    setGeneratingPassage(true);
+    try {
+      const text = await generatePassage(selectedWords.map(w => w.word));
+      if (text) {
+        setPassage({ text, words: selectedWords });
+      } else {
+        setPassage({ text: "지문 생성에 실패했습니다.", words: selectedWords });
+      }
+    } catch (e) {
+      console.error("Failed to generate passage:", e);
+      setPassage({ text: "지문 생성에 실패했습니다.", words: selectedWords });
+    }
+    setGeneratingPassage(false);
+  }
+
+  const currentWord = words[currentIndex];
+
+  async function logLearning(wordId: string, wordText: string, action: "learned" | "forgot") {
+    await supabase.from("learning_logs").insert({
+      word_id: wordId,
+      word_text: wordText,
+      action,
+    });
+  }
+
+  const handleSwipe = useCallback(
+    async (known: boolean) => {
+      if (!currentWord) return;
+
+      if (learnMode === "review") {
+        const newLevel = known ? Math.min(currentWord.level + 1, 5) : 0;
+        const minutes = REVIEW_INTERVALS[newLevel];
+        const nextReview = new Date();
+        nextReview.setMinutes(nextReview.getMinutes() + minutes);
+
+        await Promise.all([
+          supabase
+            .from("words")
+            .update({
+              level: newLevel,
+              next_review: nextReview.toISOString(),
+            })
+            .eq("id", currentWord.id),
+          logLearning(currentWord.id, currentWord.word, known ? "learned" : "forgot"),
+        ]);
+      } else {
+        logLearning(currentWord.id, currentWord.word, known ? "learned" : "forgot");
+      }
+
+      moveToNext();
+    },
+    [currentWord, learnMode]
+  );
+
+  const handleGenerateHint = useCallback(async () => {
+    if (!currentWord || generatingHint) return;
+
+    setGeneratingHint(true);
+
+    if (!currentWord.ai_example) {
+      try {
+        const example = await generateExample(currentWord.word);
+        if (example) {
+          await supabase
+            .from("words")
+            .update({ ai_example: example })
+            .eq("id", currentWord.id);
+          setWords(words.map(w =>
+            w.id === currentWord.id ? { ...w, ai_example: example } : w
+          ));
+        }
+      } catch (e) {
+        console.error("Failed to generate hint:", e);
+      }
+    }
+
+    setGeneratingHint(false);
+  }, [currentWord, generatingHint, words]);
+
+  function moveToNext() {
+    if (learnMode === "deep") {
+      const nextWords = words.slice(currentIndex + 1, currentIndex + 6);
+      if (nextWords.length >= 3) {
+        generatePassage(nextWords);
+        setCurrentIndex(prev => prev + 1);
+      } else {
+        router.push("/");
+      }
+      return;
+    }
+
+    if (currentIndex >= words.length - 1) {
+      router.push("/");
+    } else {
+      setCurrentIndex((prev) => prev + 1);
+      setStep(1);
+    }
+  }
+
+  function handleShowAnswer() {
+    setStep(2);
+  }
+
+  async function handleDontKnow() {
+    if (!showHint) {
+      setGeneratingHintContent(true);
+      
+      const [image, example] = await Promise.all([
+        searchImage(currentWord?.word || ""),
+        generateExample(currentWord?.word || "")
+      ]);
+
+      setHintImage(image);
+      setHintExample(example);
+      setShowHint(true);
+      setGeneratingHintContent(false);
+    } else {
+      setShowHint(false);
+      setHintImage(null);
+      setHintExample(null);
+      moveToNext();
+    }
+  }
+
+  function highlightWords(text: string, wordList: Word[]) {
+    let result = text;
+    wordList.forEach(word => {
+      const regex = new RegExp(`\\b(${word.word})\\b`, "gi");
+      result = result.replace(regex, "**$1**");
+    });
+    return result;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        로딩 중...
+      </div>
+    );
+  }
+
+  if (learnMode === "deep") {
+    return (
+      <main className="min-h-screen flex flex-col">
+        <div className="h-12 px-4 flex items-center justify-between">
+          <button
+            onClick={() => router.push("/")}
+            className="text-purple-500 font-medium"
+          >
+            ← 홈
+          </button>
+          <span className="text-sm text-slate-500">
+            심화 학습
+          </span>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center p-4">
+          {generatingPassage ? (
+            <div className="text-center">
+              <div className="text-4xl mb-4">✨</div>
+              <p className="text-slate-500">AI가 지문을 작성중입니다...</p>
+            </div>
+          ) : passage ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="w-full max-w-lg bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-8"
+            >
+              <div className="mb-4 flex flex-wrap gap-2">
+                {passage.words.map(w => (
+                  <span key={w.id} className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200 px-3 py-1 rounded-full text-sm">
+                    {w.word}
+                  </span>
+                ))}
+              </div>
+
+              <div className="text-xl leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap">
+                {highlightWords(passage.text, passage.words).split("**").map((part, i) =>
+                  i % 2 === 1 ? (
+                    <span key={i} className="bg-yellow-200 dark:bg-yellow-600 font-medium rounded px-1">
+                      {part}
+                    </span>
+                  ) : (
+                    <span key={i}>{part}</span>
+                  )
+                )}
+              </div>
+
+              <button
+                onClick={() => {
+                  const nextWords = words.slice(currentIndex + 1, currentIndex + 6);
+                  if (nextWords.length >= 3) {
+                    generatePassageFromWords(nextWords);
+                    setCurrentIndex(prev => prev + 1);
+                  } else {
+                    router.push("/");
+                  }
+                }}
+                className="w-full mt-6 bg-purple-500 text-white py-4 rounded-xl font-bold text-lg"
+              >
+                다음 지문 →
+              </button>
+            </motion.div>
+          ) : (
+            <div className="text-center">
+              <p className="text-slate-500">심화 학습을 시작할 수 없습니다.</p>
+              <p className="text-sm text-slate-400 mt-2">레벨 4 이상의 단어가 3개 이상 필요합니다.</p>
+              <button
+                onClick={() => router.push("/")}
+                className="mt-4 bg-purple-500 text-white px-6 py-3 rounded-xl"
+              >
+                홈으로
+              </button>
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  if (words.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <p className="text-slate-500 mb-4">학습할 단어가 없어요</p>
+        <button
+          onClick={() => router.push("/")}
+          className="bg-primary text-white px-6 py-3 rounded-xl"
+        >
+          단어 추가하기
+        </button>
+      </div>
+    );
+  }
+
+  const progress = (currentIndex / words.length) * 100;
+
+  return (
+    <main className="min-h-screen flex flex-col">
+      <div className="h-12 px-4 flex items-center justify-between">
+        <button
+          onClick={() => router.push("/")}
+          className="text-primary font-medium"
+        >
+          ← 홈
+        </button>
+        <span className="text-sm text-slate-500">
+          {currentIndex + 1} / {words.length}
+        </span>
+      </div>
+      <div className="h-1 bg-slate-200">
+        <div
+          className="h-full bg-primary transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      <div className="flex-1 flex items-center justify-center p-4">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentWord?.id}
+            className="w-full max-w-md aspect-[3/4] bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-6 flex flex-col"
+            drag={step === 2 ? "x" : false}
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.2}
+            onDragEnd={(_, info) => {
+              if (info.offset.x < -100) handleDontKnow();
+              if (info.offset.x > 100) handleSwipe(true);
+            }}
+            style={{ x }}
+            onTap={step === 1 ? handleShowAnswer : undefined}
+          >
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <h2 className="text-4xl font-bold text-center">
+                {currentWord?.word}
+              </h2>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  speak(currentWord?.word || "");
+                }}
+                className="text-3xl mt-3"
+              >
+                🔊
+              </button>
+
+              {step >= 2 && (
+                <div className="text-center mt-6">
+                  <p className="text-2xl text-slate-700 dark:text-slate-200">
+                    {currentWord?.meaning}
+                  </p>
+                  {currentWord?.example_note && (
+                    <p className="mt-2 text-slate-500">
+                      📝 {currentWord.example_note}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {step === 2 && currentWord?.ai_example && (
+                <div className="text-center mt-4">
+                  <p className="text-lg text-slate-600 dark:text-slate-300">
+                    💡 {currentWord.ai_example}
+                  </p>
+                </div>
+              )}
+
+              <AnimatePresence>
+                {showHint && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="absolute inset-0 bg-white dark:bg-slate-800 rounded-3xl flex flex-col items-center justify-center p-6"
+                  >
+                    {generatingHintContent ? (
+                      <div className="text-center">
+                        <div className="text-4xl mb-4">🔍</div>
+                        <p className="text-slate-500">이미지 & 예문 생성중...</p>
+                      </div>
+                    ) : (
+                      <>
+                        {hintImage && (
+                          <img
+                            src={hintImage}
+                            alt="hint"
+                            className="w-48 h-48 object-cover rounded-xl mb-4"
+                          />
+                        )}
+                        {hintExample && (
+                          <p className="text-lg text-slate-700 dark:text-slate-300 text-center mb-6">
+                            💡 {hintExample}
+                          </p>
+                        )}
+                        <button
+                          onClick={() => {
+                            setShowHint(false);
+                            setHintImage(null);
+                            setHintExample(null);
+                            moveToNext();
+                          }}
+                          className="bg-danger text-white px-8 py-3 rounded-xl font-bold"
+                        >
+                          확인
+                        </button>
+                      </>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="h-14">
+              {step === 1 ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleShowAnswer();
+                  }}
+                  className="w-full h-full bg-success text-white rounded-xl font-bold text-lg"
+                >
+                  뜻 보기
+                </button>
+              ) : (
+                <div className="flex gap-4 h-full">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDontKnow();
+                    }}
+                    className="flex-1 bg-danger text-white rounded-xl font-bold text-lg"
+                  >
+                    👎 모름
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSwipe(true);
+                    }}
+                    className="flex-1 bg-primary text-white rounded-xl font-bold text-lg"
+                  >
+                    👍 알아요
+                  </button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </main>
+  );
+}
