@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence, useMotionValue } from "framer-motion";
 import { supabase } from "@/lib/supabase";
@@ -26,7 +26,7 @@ interface Passage {
   words: Word[];
 }
 
-export default function LearnPage() {
+function LearnContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const learnCount = Number(searchParams.get("count") || "20");
@@ -504,5 +504,13 @@ export default function LearnPage() {
         </AnimatePresence>
       </div>
     </main>
+  );
+}
+
+export default function LearnPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">로딩 중...</div>}>
+      <LearnContent />
+    </Suspense>
   );
 }
