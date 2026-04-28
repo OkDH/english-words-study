@@ -198,7 +198,7 @@ export default function LearnPage() {
     if (learnMode === "deep") {
       const nextWords = words.slice(currentIndex + 1, currentIndex + 6);
       if (nextWords.length >= 3) {
-        generatePassage(nextWords);
+        generatePassage(nextWords.map(w => w.word));
         setCurrentIndex(prev => prev + 1);
       } else {
         router.push("/");
