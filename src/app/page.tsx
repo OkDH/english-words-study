@@ -126,38 +126,55 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="space-y-3">
+          <div className="h-[calc(100vh-280px)] overflow-y-auto space-y-3">
             {words.map((word) => (
               <div
                 key={word.id}
-                className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm flex justify-between items-center"
+                className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm"
               >
-                <div>
-                  <span className="font-semibold text-lg">{word.word}</span>
-                  <span className="text-slate-500 ml-2">{word.meaning}</span>
-                  <div className="flex gap-1 mt-1">
-                    {Array.from({ length: word.level + 1 }).map((_, i) => (
-                      <span key={i} className="text-xs">⬜</span>
-                    ))}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="font-semibold text-lg">{word.word}</span>
+                    <span className="text-slate-500 ml-2">{word.meaning}</span>
+                    <div className="flex gap-1 mt-1">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <span
+                          key={i}
+                          className={`text-xs ${i < word.level ? "text-primary" : "text-slate-300"}`}
+                        >
+                          {i < word.level ? "🟦" : "⬜"}
+                        </span>
+                      ))}
+                    </div>
+                    {word.ai_example && (
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 italic">
+                        {word.ai_example}
+                      </p>
+                    )}
+                    {word.example_note && (
+                      <p className="text-xs text-slate-400 mt-1">
+                        📝 {word.example_note}
+                      </p>
+                    )}
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <Link
-                    href={`/edit/${word.id}`}
-                    className="text-primary text-sm px-3 py-1 border border-primary rounded"
-                  >
-                    수정
-                  </Link>
-                  <button
-                    onClick={() => {
-                      if (confirm("정말 삭제하시겠어요?")) {
-                        deleteWord(word.id);
-                      }
-                    }}
-                    className="text-danger text-sm px-3 py-1 border border-danger rounded"
-                  >
-                    삭제
-                  </button>
+                  <div className="flex gap-2 ml-4">
+                    <Link
+                      href={`/edit/${word.id}`}
+                      className="text-primary text-sm px-3 py-1 border border-primary rounded"
+                    >
+                      수정
+                    </Link>
+                    <button
+                      onClick={() => {
+                        if (confirm("정말 삭제하시겠어요?")) {
+                          deleteWord(word.id);
+                        }
+                      }}
+                      className="text-danger text-sm px-3 py-1 border border-danger rounded"
+                    >
+                      삭제
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

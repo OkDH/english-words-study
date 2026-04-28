@@ -11,12 +11,26 @@ export default function AddPage() {
   const [meaning, setMeaning] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
+  const [duplicateError, setDuplicateError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!word.trim() || !meaning.trim()) return;
 
     setLoading(true);
+    setDuplicateError("");
+
+    const { data: existing } = await supabase
+      .from("words")
+      .select("id")
+      .ilike("word", word.trim())
+      .single();
+
+    if (existing) {
+      setDuplicateError("이미 존재하는 단어입니다");
+      setLoading(false);
+      return;
+    }
 
     const [aiExample] = await Promise.all([
       generateExample(word.trim()),
@@ -54,6 +68,9 @@ export default function AddPage() {
             className="w-full p-3 border rounded-xl text-lg"
             autoFocus
           />
+          {duplicateError && (
+            <p className="text-danger text-sm mt-1">{duplicateError}</p>
+          )}
         </div>
 
         <div>

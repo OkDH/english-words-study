@@ -24,7 +24,7 @@ interface DashboardData {
   masteredWords: number;
   currentStreak: number;
   wordsByLevel: { level: number; count: number }[];
-  growthData: { date: string; cumulative: number }[];
+  growthData: { date: string; count: number }[];
   heatmapData: { date: string; count: number }[];
   hardestWords: { word: Word; failCount: number }[];
   forecast: { date: string; count: number }[];
@@ -65,17 +65,15 @@ export default function DashboardPage() {
       count: words.filter(w => w.level === level).length,
     }));
 
-    const growthData: { date: string; cumulative: number }[] = [];
-    let cumulative = 0;
+    const growthData: { date: string; count: number }[] = [];
     for (let i = 30; i >= 0; i--) {
       const date = subDays(now, i);
       const dateStr = format(date, "MM/dd");
       const countByDate = words.filter(w => {
         const created = new Date(w.created_at);
-        return created <= date;
+        return format(created, "yyyy-MM-dd") === format(date, "yyyy-MM-dd");
       }).length;
-      cumulative = countByDate;
-      growthData.push({ date: dateStr, cumulative });
+      growthData.push({ date: dateStr, count: countByDate });
     }
 
     const heatmapData: { date: string; count: number }[] = [];
@@ -158,7 +156,7 @@ export default function DashboardPage() {
     return streak;
   }
 
-  const COLORS = ["#6366F1", "#818CF8", "#A5B4FC", "#C7D2FE", "#E0E7FF", "#EEF2FF"];
+  const COLORS = ["#EF4444", "#F97316", "#EAB308", "#22C55E", "#3B82F6", "#8B5CF6"];
 
   if (loading) {
     return (
@@ -185,23 +183,30 @@ export default function DashboardPage() {
 
       {data && (
         <>
-          <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="grid grid-cols-4 gap-3 mb-6">
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl text-center shadow-sm">
               <div className="text-2xl font-bold text-primary">{data.totalWords}</div>
               <div className="text-xs text-slate-500">전체 단어</div>
             </div>
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl text-center shadow-sm">
+              <div className="text-2xl font-bold text-blue-500">
+                {data.totalWords > 0 ? data.totalWords - data.wordsByLevel[0].count : 0}
+              </div>
+              <div className="text-xs text-slate-500">학습한 단어</div>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl text-center shadow-sm">
               <div className="text-2xl font-bold text-green-500">{data.masteredWords}</div>
-              <div className="text-xs text-slate-500">완숙</div>
+              <div className="text-xs text-slate-500">마스터 (L5)</div>
             </div>
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl text-center shadow-sm">
               <div className="text-2xl font-bold text-orange-500">🔥 {data.currentStreak}</div>
-              <div className="text-xs text-slate-500">연속</div>
+              <div className="text-xs text-slate-500">연속 일자</div>
             </div>
           </div>
 
           <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm mb-6">
-            <h2 className="text-lg font-bold mb-4">📈 단어 성장 곡선</h2>
+            <h2 className="text-lg font-bold">📈 일별 추가 단어</h2>
+            <p className="text-xs text-slate-500 mb-3">매일 새로 추가한 단어 수</p>
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data.growthData}>
@@ -211,7 +216,7 @@ export default function DashboardPage() {
                   <Tooltip />
                   <Line
                     type="monotone"
-                    dataKey="cumulative"
+                    dataKey="count"
                     stroke="#6366F1"
                     strokeWidth={2}
                     dot={false}
@@ -222,7 +227,8 @@ export default function DashboardPage() {
           </div>
 
           <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm mb-6">
-            <h2 className="text-lg font-bold mb-4">📅 향후 7일 복습 예측</h2>
+            <h2 className="text-lg font-bold">📅 향후 7일 복습 예측</h2>
+            <p className="text-xs text-slate-500 mb-3">곧 복습할 단어 수</p>
             <div className="grid grid-cols-7 gap-2">
               {data.forecast.map((item, i) => (
                 <div
@@ -237,7 +243,8 @@ export default function DashboardPage() {
           </div>
 
           <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm mb-6">
-            <h2 className="text-lg font-bold mb-4">🔥 학습 히트맵 (최근 14일)</h2>
+            <h2 className="text-lg font-bold">🔥 학습 히트맵 (최근 14일)</h2>
+            <p className="text-xs text-slate-500 mb-3">하루 동안 학습한 단어 수</p>
             <div className="grid grid-cols-7 gap-2">
               {data.heatmapData.map((item, i) => (
                 <div
@@ -255,45 +262,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm">
-              <h2 className="text-lg font-bold mb-4">📊 레벨 분포</h2>
-              <div className="h-40">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data.wordsByLevel}
-                      dataKey="count"
-                      nameKey="level"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={60}
-                      label={({ level, count }) => `${level}: ${count}`}
-                    >
-                      {data.wordsByLevel.map((_, index) => (
-                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm">
-              <h2 className="text-lg font-bold mb-4">🏆 누적 학습량</h2>
-              <div className="flex items-center justify-center h-40">
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-primary">{data.totalWords}</div>
-                  <div className="text-slate-500">단어</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {data.hardestWords.length > 0 && (
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm">
-              <h2 className="text-lg font-bold mb-4">😥最难 단어 Top 10</h2>
+              <h2 className="text-lg font-bold">😥 실패한 단어 Top 10</h2>
+              <p className="text-xs text-slate-500 mb-3">실패 횟수가 많은 단어</p>
               <div className="space-y-2">
                 {data.hardestWords.map((item, i) => (
                   <div
