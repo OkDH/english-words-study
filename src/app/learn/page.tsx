@@ -120,16 +120,24 @@ function LearnContent() {
       return;
     }
 
-    const now = new Date().toISOString();
+    const now = new Date();
+    const nowISO = now.toISOString();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
 
     const { data: dueProgress } = await supabase
       .from("user_word_progress")
       .select("word_id, level, next_review")
       .eq("user_id", userId)
-      .lte("next_review", now);
+      .or(`next_review.lte.${nowISO},next_review.is.null`);
 
-    if (dueProgress && dueProgress.length >= learnCount) {
-      const wordIds = dueProgress.slice(0, learnCount).map(p => p.word_id);
+    const dueForReview = dueProgress?.filter(p => {
+      if (!p.next_review) return true;
+      return new Date(p.next_review) <= now;
+    }) || [];
+
+    if (dueProgress && dueForReview.length > 0) {
+      const shuffled = dueForReview.sort(() => Math.random() - 0.5);
+      const wordIds = shuffled.slice(0, learnCount).map(p => p.word_id);
       const { data: dueWords } = await supabase
         .from("words")
         .select("*")
@@ -140,44 +148,13 @@ function LearnContent() {
         level: progressMap.get(w.id)?.level || 0,
         next_review: progressMap.get(w.id)?.next_review,
       })) || [];
-      const shuffled = wordsWithProgress.sort(() => Math.random() - 0.5);
-      setWords(shuffled);
+      const finalShuffled = wordsWithProgress.sort(() => Math.random() - 0.5);
+      setWords(finalShuffled);
       setLoading(false);
       return;
     }
 
-    const { data: allProgress } = await supabase
-      .from("user_word_progress")
-      .select("word_id, level, next_review")
-      .eq("user_id", userId)
-      .order("level", { ascending: true });
-
-    if (allProgress && allProgress.length > 0) {
-      const wordIds = allProgress.map(p => p.word_id);
-      const { data: allWords } = await supabase
-        .from("words")
-        .select("*")
-        .in("id", wordIds);
-
-      const wordMap = new Map(allWords?.map(w => [w.id, w]) || []);
-      const progressMap = new Map(allProgress.map(p => [p.word_id, p]));
-      const sortedWords = allProgress
-        .filter(p => wordMap.has(p.word_id))
-        .slice(0, learnCount)
-        .map(p => ({
-          ...wordMap.get(p.word_id)!,
-          level: p.level,
-          next_review: p.next_review,
-        }));
-      const shuffled = sortedWords.sort(() => Math.random() - 0.5);
-      setWords(shuffled);
-    } else {
-      const { data } = await supabase
-        .from("words")
-        .select("*")
-        .limit(learnCount);
-      setWords(data || []);
-    }
+    setWords([]);
     setLoading(false);
   }
 
