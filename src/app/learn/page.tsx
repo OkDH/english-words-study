@@ -43,12 +43,35 @@ function LearnContent() {
   const [hintExample, setHintExample] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
   const [generatingHintContent, setGeneratingHintContent] = useState(false);
+  const [cardDirection, setCardDirection] = useState<'normal' | 'reverse'>('normal');
   const x = useMotionValue(0);
   const { speak, stop } = useTTS();
+
+  const REVERSE_PROBABILITIES: Record<number, number> = {
+    0: 0,
+    1: 0,
+    2: 0,
+    3: 0.3,
+    4: 0.5,
+    5: 0.8,
+  };
+
+  function getCardDirection(level: number): 'normal' | 'reverse' {
+    if (level < 3) return 'normal';
+    const prob = REVERSE_PROBABILITIES[level] || 0;
+    return Math.random() < prob ? 'reverse' : 'normal';
+  }
 
   useEffect(() => {
     fetchWords();
   }, [learnMode]);
+
+  useEffect(() => {
+    if (currentWord) {
+      setCardDirection(getCardDirection(currentWord.level));
+      setStep(1);
+    }
+  }, [currentIndex, currentWord?.level]);
 
   async function fetchWords() {
     const userId = localStorage.getItem("selectedUser") || "dong";
@@ -418,7 +441,7 @@ const handleSwipe = useCallback(
         <AnimatePresence mode="wait">
           <motion.div
             key={currentWord?.id}
-            className="w-full max-w-md aspect-[3/4] bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-6 flex flex-col"
+            className={`w-full max-w-md aspect-[3/4] bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-6 flex flex-col ${cardDirection === 'reverse' ? 'border-4 border-purple-500' : 'border-4 border-primary'}`}
             drag={step === 2 ? "x" : false}
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.2}
@@ -430,33 +453,67 @@ const handleSwipe = useCallback(
             onTap={step === 1 ? handleShowAnswer : undefined}
           >
             <div className="flex-1 flex flex-col items-center justify-center">
-              <h2 className="text-4xl font-bold text-center">
-                {currentWord?.word}
-              </h2>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  speak(currentWord?.word || "");
-                }}
-                className="text-3xl mt-3"
-              >
-                🔊
-              </button>
-
-              {step >= 2 && (
-                <div className="text-center mt-6">
-                  <p className="text-2xl text-slate-700 dark:text-slate-200">
-                    {currentWord?.meaning}
-                  </p>
-                  {currentWord?.example_note && (
-                    <p className="mt-2 text-slate-500">
-                      📝 {currentWord.example_note}
-                    </p>
+              {cardDirection === 'reverse' ? (
+                <>
+                  {step === 1 ? (
+                    <div className="text-center">
+                      <p className="text-2xl text-slate-700 dark:text-slate-200">
+                        {currentWord?.meaning}
+                      </p>
+                      {currentWord?.example_note && (
+                        <p className="mt-2 text-slate-500">
+                          📝 {currentWord.example_note}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <h2 className="text-4xl font-bold text-center">
+                        {currentWord?.word}
+                      </h2>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          speak(currentWord?.word || "");
+                        }}
+                        className="text-3xl mt-3"
+                      >
+                        🔊
+                      </button>
+                    </div>
                   )}
-                </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-4xl font-bold text-center">
+                    {currentWord?.word}
+                  </h2>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      speak(currentWord?.word || "");
+                    }}
+                    className="text-3xl mt-3"
+                  >
+                    🔊
+                  </button>
+
+                  {step >= 2 && (
+                    <div className="text-center mt-6">
+                      <p className="text-2xl text-slate-700 dark:text-slate-200">
+                        {currentWord?.meaning}
+                      </p>
+                      {currentWord?.example_note && (
+                        <p className="mt-2 text-slate-500">
+                          📝 {currentWord.example_note}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
 
-              {step === 2 && currentWord?.ai_example && (
+              {step === 2 && currentWord?.ai_example && cardDirection === 'normal' && (
                 <div className="text-center mt-4">
                   <p className="text-lg text-slate-600 dark:text-slate-300">
                     💡 {currentWord.ai_example}
@@ -510,37 +567,72 @@ const handleSwipe = useCallback(
             </div>
 
             <div className="h-14">
-              {step === 1 ? (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleShowAnswer();
-                  }}
-                  className="w-full h-full bg-success text-white rounded-xl font-bold text-lg"
-                >
-                  뜻 보기
-                </button>
+              {cardDirection === 'reverse' ? (
+                step === 1 ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setStep(2);
+                    }}
+                    className="w-full h-full bg-purple-500 text-white rounded-xl font-bold text-lg"
+                  >
+                    정답 보기
+                  </button>
+                ) : (
+                  <div className="flex gap-4 h-full">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDontKnow();
+                      }}
+                      className="flex-1 bg-danger text-white rounded-xl font-bold text-lg"
+                    >
+                      👎 모름
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSwipe(true);
+                      }}
+                      className="flex-1 bg-success text-white rounded-xl font-bold text-lg"
+                    >
+                      👍 알아요
+                    </button>
+                  </div>
+                )
               ) : (
-                <div className="flex gap-4 h-full">
+                step === 1 ? (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDontKnow();
+                      handleShowAnswer();
                     }}
-                    className="flex-1 bg-danger text-white rounded-xl font-bold text-lg"
+                    className="w-full h-full bg-success text-white rounded-xl font-bold text-lg"
                   >
-                    👎 모름
+                    뜻 보기
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSwipe(true);
-                    }}
-                    className="flex-1 bg-primary text-white rounded-xl font-bold text-lg"
-                  >
-                    👍 알아요
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex gap-4 h-full">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDontKnow();
+                      }}
+                      className="flex-1 bg-danger text-white rounded-xl font-bold text-lg"
+                    >
+                      👎 모름
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSwipe(true);
+                      }}
+                      className="flex-1 bg-primary text-white rounded-xl font-bold text-lg"
+                    >
+                      👍 알아요
+                    </button>
+                  </div>
+                )
               )}
             </div>
           </motion.div>
