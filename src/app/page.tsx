@@ -21,6 +21,8 @@ export default function HomePage() {
   const [hasMore, setHasMore] = useState(true);
   const [learnCount, setLearnCount] = useState(20);
   const [learnMode, setLearnMode] = useState<"review" | "shuffle" | "deep">("review");
+  const [shuffleSubMode, setShuffleSubMode] = useState<"normal" | "reverse" | "mixed">("mixed");
+  const [showShuffleModal, setShowShuffleModal] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -232,7 +234,13 @@ useEffect(() => {
                 복습
               </button>
               <button
-                onClick={() => setLearnMode("shuffle")}
+                onClick={() => {
+                  if (learnMode === "shuffle") {
+                    setShowShuffleModal(true);
+                  } else {
+                    setLearnMode("shuffle");
+                  }
+                }}
                 className={`flex-1 py-3 rounded-xl font-medium ${
                   learnMode === "shuffle"
                     ? "bg-primary text-white"
@@ -253,7 +261,13 @@ useEffect(() => {
               </button>
             </div>
             <Link
-              href={`/learn?count=${learnCount}&mode=${learnMode}`}
+              href={learnMode === "shuffle" ? "#" : `/learn?count=${learnCount}&mode=${learnMode}`}
+              onClick={(e) => {
+                if (learnMode === "shuffle") {
+                  e.preventDefault();
+                  setShowShuffleModal(true);
+                }
+              }}
               className={`flex-1 py-4 rounded-xl font-bold text-lg text-center ${
                 learnMode === "deep" ? "bg-purple-500 text-white" : "bg-primary text-white"
               }`}
@@ -261,6 +275,52 @@ useEffect(() => {
               시작 {learnMode === "review" && dueCount > 0 && `(${dueCount})`}
             </Link>
           </div>
+
+          {showShuffleModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm">
+                <h3 className="text-xl font-bold mb-4 text-center">셔플 모드 선택</h3>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => {
+                      setShuffleSubMode("normal");
+                      router.push(`/learn?count=${learnCount}&mode=shuffle&subMode=normal`);
+                    }}
+                    className="w-full p-4 border-4 border-blue-500 rounded-xl text-left"
+                  >
+                    <div className="font-bold text-blue-600">🇰🇷 영어 → 한글</div>
+                    <div className="text-sm text-slate-500">영어 단어를 보고 한글 뜻 맞추기</div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShuffleSubMode("reverse");
+                      router.push(`/learn?count=${learnCount}&mode=shuffle&subMode=reverse`);
+                    }}
+                    className="w-full p-4 border-4 border-purple-500 rounded-xl text-left"
+                  >
+                    <div className="font-bold text-purple-600">🇰🇷 한글 → 영어</div>
+                    <div className="text-sm text-slate-500">한글 뜻을 보고 영어 단어 맞추기</div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShuffleSubMode("mixed");
+                      router.push(`/learn?count=${learnCount}&mode=shuffle&subMode=mixed`);
+                    }}
+                    className="w-full p-4 border-4 border-slate-300 rounded-xl text-left"
+                  >
+                    <div className="font-bold text-slate-600">🔀 랜덤 섞기</div>
+                    <div className="text-sm text-slate-500">영→한, 한→영 랜덤으로 섞여서 나옴</div>
+                  </button>
+                </div>
+                <button
+                  onClick={() => setShowShuffleModal(false)}
+                  className="w-full mt-4 py-3 text-slate-500"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="mb-4">
             <Link

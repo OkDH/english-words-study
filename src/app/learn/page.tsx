@@ -31,6 +31,7 @@ function LearnContent() {
   const searchParams = useSearchParams();
   const learnCount = Number(searchParams.get("count") || "20");
   const learnMode = (searchParams.get("mode") as Mode) || "review";
+  const shuffleSubMode = searchParams.get("subMode") as 'normal' | 'reverse' | 'mixed' | null;
 
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -57,6 +58,11 @@ function LearnContent() {
   };
 
   function getCardDirection(level: number): 'normal' | 'reverse' {
+    if (shuffleSubMode === 'normal') return 'normal';
+    if (shuffleSubMode === 'reverse') return 'reverse';
+    if (shuffleSubMode === 'mixed') {
+      return Math.random() < 0.5 ? 'normal' : 'reverse';
+    }
     if (level < 3) return 'normal';
     const prob = REVERSE_PROBABILITIES[level] || 0;
     return Math.random() < prob ? 'reverse' : 'normal';
@@ -67,11 +73,18 @@ function LearnContent() {
   }, [learnMode]);
 
   useEffect(() => {
-    if (currentWord) {
-      setCardDirection(getCardDirection(currentWord.level));
+    const word = words[currentIndex];
+    if (word) {
+      if (shuffleSubMode === 'normal') {
+        setCardDirection('normal');
+      } else if (shuffleSubMode === 'reverse') {
+        setCardDirection('reverse');
+      } else {
+        setCardDirection(getCardDirection(word.level));
+      }
       setStep(1);
     }
-  }, [currentIndex, currentWord?.level]);
+  }, [currentIndex, words, shuffleSubMode]);
 
   async function fetchWords() {
     const userId = localStorage.getItem("selectedUser") || "dong";
