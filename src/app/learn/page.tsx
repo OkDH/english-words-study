@@ -126,7 +126,7 @@ function LearnContent() {
       .from("user_word_progress")
       .select("word_id, level, next_review")
       .eq("user_id", userId)
-      .or(`next_review.lte.${now},level.eq.0`);
+      .lte("next_review", now);
 
     if (dueProgress && dueProgress.length >= learnCount) {
       const wordIds = dueProgress.slice(0, learnCount).map(p => p.word_id);
