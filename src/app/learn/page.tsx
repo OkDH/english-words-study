@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence, useMotionValue } from "framer-motion";
 import { supabase } from "@/lib/supabase";
-import { generateExample, generatePassage } from "@/lib/groq";
+import { generateExample, generateExamples, generatePassage } from "@/lib/groq";
 import { searchImage } from "@/lib/unsplash";
 import { useTTS } from "@/lib/useTTS";
 import type { Word } from "@/lib/types";
@@ -42,6 +42,7 @@ function LearnContent() {
   const [generatingPassage, setGeneratingPassage] = useState(false);
   const [hintImage, setHintImage] = useState<string | null>(null);
   const [hintExample, setHintExample] = useState<string | null>(null);
+  const [hintExamples, setHintExamples] = useState<string[]>([]);
   const [showHint, setShowHint] = useState(false);
   const [generatingHintContent, setGeneratingHintContent] = useState(false);
   const [cardDirection, setCardDirection] = useState<'normal' | 'reverse'>('normal');
@@ -287,19 +288,20 @@ const handleSwipe = useCallback(
     if (!showHint) {
       setGeneratingHintContent(true);
 
-      const [image, example] = await Promise.all([
+      const [image, examples] = await Promise.all([
         searchImage(currentWord?.word || ""),
-        generateExample(currentWord?.word || "")
+        generateExamples(currentWord?.word || "", 3)
       ]);
 
       setHintImage(image);
-      setHintExample(example);
+      setHintExamples(examples);
       setShowHint(true);
       setGeneratingHintContent(false);
     } else {
       setShowHint(false);
       setHintImage(null);
       setHintExample(null);
+      setHintExamples([]);
       moveToNext();
     }
   }
@@ -542,16 +544,21 @@ const handleSwipe = useCallback(
                             className="w-48 h-48 object-cover rounded-xl mb-4"
                           />
                         )}
-                        {hintExample && (
-                          <p className="text-lg text-slate-700 dark:text-slate-300 text-center mb-6">
-                            💡 {hintExample}
-                          </p>
+                        {hintExamples.length > 0 && (
+                          <div className="space-y-2 mb-6 max-w-md">
+                            {hintExamples.map((example, i) => (
+                              <p key={i} className="text-base text-slate-700 dark:text-slate-300 text-center">
+                                💡 {example}
+                              </p>
+                            ))}
+                          </div>
                         )}
                         <button
                           onClick={() => {
                             setShowHint(false);
                             setHintImage(null);
                             setHintExample(null);
+                            setHintExamples([]);
                             moveToNext();
                           }}
                           className="bg-danger text-white px-8 py-3 rounded-xl font-bold"

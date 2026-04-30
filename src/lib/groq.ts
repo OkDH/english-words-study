@@ -35,6 +35,14 @@ export async function generateExample(word: string, forceRefresh = false): Promi
   return null;
 }
 
+export async function generateExamples(word: string, count: number = 3): Promise<string[]> {
+  const promises = Array.from({ length: count }, () =>
+    generateExample(word, true)
+  );
+  const results = await Promise.all(promises);
+  return results.filter((r): r is string => r !== null);
+}
+
 export async function generatePassage(words: string[]): Promise<string | null> {
   if (words.length < 3) return null;
 
