@@ -42,7 +42,7 @@ export default function EditPage() {
   async function handleRegenerate() {
     if (!word.trim()) return;
     setRegenerating(true);
-    const example = await generateExample(word.trim());
+    const example = await generateExample(word.trim(), true);
     if (example) {
       setAiExample(example);
     }

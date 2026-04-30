@@ -21,8 +21,8 @@ async function callGenerateAPI(word: string, type: "example" | "passage"): Promi
   }
 }
 
-export async function generateExample(word: string): Promise<string | null> {
-  if (exampleCache.has(word)) {
+export async function generateExample(word: string, forceRefresh = false): Promise<string | null> {
+  if (!forceRefresh && exampleCache.has(word)) {
     return exampleCache.get(word) || null;
   }
 
