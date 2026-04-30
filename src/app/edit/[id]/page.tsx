@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { generateExample } from "@/lib/groq";
 import type { Word } from "@/lib/types";
 
 export default function EditPage() {
@@ -13,8 +14,10 @@ export default function EditPage() {
   const [word, setWord] = useState("");
   const [meaning, setMeaning] = useState("");
   const [note, setNote] = useState("");
+  const [aiExample, setAiExample] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => {
     fetchWord();
@@ -31,8 +34,19 @@ export default function EditPage() {
       setWord(data.word);
       setMeaning(data.meaning);
       setNote(data.example_note || "");
+      setAiExample(data.ai_example || "");
     }
     setLoading(false);
+  }
+
+  async function handleRegenerate() {
+    if (!word.trim()) return;
+    setRegenerating(true);
+    const example = await generateExample(word.trim());
+    if (example) {
+      setAiExample(example);
+    }
+    setRegenerating(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -47,6 +61,7 @@ export default function EditPage() {
         word: word.trim(),
         meaning: meaning.trim(),
         example_note: note.trim() || null,
+        ai_example: aiExample.trim() || null,
       })
       .eq("id", id);
 
@@ -108,6 +123,27 @@ export default function EditPage() {
             onChange={(e) => setNote(e.target.value)}
             rows={3}
             className="w-full p-3 border rounded-xl text-lg resize-none"
+          />
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="block text-sm font-medium">AI 예문</label>
+            <button
+              type="button"
+              onClick={handleRegenerate}
+              disabled={regenerating || !word.trim()}
+              className="text-sm text-primary disabled:opacity-50"
+            >
+              {regenerating ? "생성 중..." : "🔄 다시 생성"}
+            </button>
+          </div>
+          <textarea
+            value={aiExample}
+            onChange={(e) => setAiExample(e.target.value)}
+            rows={2}
+            placeholder="AI가 생성한 예문입니다. 직접 수정할 수 있어요."
+            className="w-full p-3 border rounded-xl text-base resize-none"
           />
         </div>
 
