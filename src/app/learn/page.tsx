@@ -472,6 +472,9 @@ const handleSwipe = useCallback(
                       <h2 className="text-4xl font-bold text-center">
                         {currentWord?.word}
                       </h2>
+                      {currentWord?.phonetic && (
+                        <p className="text-slate-500 text-lg mt-1">{currentWord.phonetic}</p>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -489,6 +492,9 @@ const handleSwipe = useCallback(
                   <h2 className="text-4xl font-bold text-center">
                     {currentWord?.word}
                   </h2>
+                  {currentWord?.phonetic && (
+                    <p className="text-slate-500 text-lg mt-1">{currentWord.phonetic}</p>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { generateExample } from "@/lib/groq";
+import { fetchPhonetic } from "@/lib/phonetic";
 
 export default function AddPage() {
   const router = useRouter();
@@ -32,8 +33,9 @@ export default function AddPage() {
       return;
     }
 
-    const [aiExample] = await Promise.all([
+    const [aiExample, phoneticResult] = await Promise.all([
       generateExample(word.trim()),
+      fetchPhonetic(word.trim()),
     ]);
 
     const userId = localStorage.getItem("selectedUser") || "dong";
@@ -41,6 +43,7 @@ export default function AddPage() {
     const { error } = await supabase.from("words").insert({
       word: word.trim(),
       meaning: meaning.trim(),
+      phonetic: phoneticResult.phonetic,
       example_note: note.trim() || null,
       ai_example: aiExample,
       next_review: new Date().toISOString(),

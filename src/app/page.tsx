@@ -340,6 +340,9 @@ useEffect(() => {
                 <div className="flex justify-between items-start">
                   <div>
                     <span className="font-semibold text-lg">{word.word}</span>
+                    {word.phonetic && (
+                      <span className="text-slate-400 ml-1 text-sm">{word.phonetic}</span>
+                    )}
                     <span className="text-slate-500 ml-2">{word.meaning}</span>
                     <div className="flex gap-1 mt-1">
                       {Array.from({ length: 6 }).map((_, i) => (

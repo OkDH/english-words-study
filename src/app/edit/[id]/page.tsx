@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { generateExample } from "@/lib/groq";
+import { fetchPhonetic } from "@/lib/phonetic";
 import type { Word } from "@/lib/types";
 
 export default function EditPage() {
@@ -13,6 +14,7 @@ export default function EditPage() {
 
   const [word, setWord] = useState("");
   const [meaning, setMeaning] = useState("");
+  const [phonetic, setPhonetic] = useState("");
   const [note, setNote] = useState("");
   const [aiExample, setAiExample] = useState("");
   const [loading, setLoading] = useState(true);
@@ -33,6 +35,7 @@ export default function EditPage() {
     if (data) {
       setWord(data.word);
       setMeaning(data.meaning);
+      setPhonetic(data.phonetic || "");
       setNote(data.example_note || "");
       setAiExample(data.ai_example || "");
     }
@@ -49,6 +52,14 @@ export default function EditPage() {
     setRegenerating(false);
   }
 
+  async function handleFetchPhonetic() {
+    if (!word.trim()) return;
+    const result = await fetchPhonetic(word.trim());
+    if (result.phonetic) {
+      setPhonetic(result.phonetic);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!word.trim() || !meaning.trim()) return;
@@ -60,6 +71,7 @@ export default function EditPage() {
       .update({
         word: word.trim(),
         meaning: meaning.trim(),
+        phonetic: phonetic.trim() || null,
         example_note: note.trim() || null,
         ai_example: aiExample.trim() || null,
       })
@@ -112,6 +124,26 @@ export default function EditPage() {
             type="text"
             value={meaning}
             onChange={(e) => setMeaning(e.target.value)}
+            className="w-full p-3 border rounded-xl text-lg"
+          />
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="block text-sm font-medium">발음 기호</label>
+            <button
+              type="button"
+              onClick={handleFetchPhonetic}
+              className="text-sm text-primary"
+            >
+              🔍 자동 검색
+            </button>
+          </div>
+          <input
+            type="text"
+            value={phonetic}
+            onChange={(e) => setPhonetic(e.target.value)}
+            placeholder="예: /həˈloʊ/"
             className="w-full p-3 border rounded-xl text-lg"
           />
         </div>

@@ -2,6 +2,7 @@ export interface Word {
   id: string;
   word: string;
   meaning: string;
+  phonetic: string | null;
   example_note: string | null;
   ai_example: string | null;
   level: number;
