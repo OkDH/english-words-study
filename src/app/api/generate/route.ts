@@ -22,13 +22,13 @@ export async function POST(request: Request) {
       maxTokens = 80;
     } else {
       const sentenceStyles = [
-        `Write a SHORT English sentence with "${word}". One sentence only, keep it brief and natural (5-8 words). IMPORTANT: Use ONLY English and Korean. No Chinese characters (汉字/漢文), no Japanese (かな/カナ), no other languages. Format: "English sentence (한국어 의미)"`,
+        `Write a SHORT English sentence with "${word}". Format: "English sentence | Korean translation". IMPORTANT: The Korean translation must use ONLY Korean alphabet (한글). No Chinese characters, no Japanese, no Romanization. Pure Korean only.`,
 
-        `Make a short English sentence with "${word}". Keep it concise, about 5-8 words. Sound natural. IMPORTANT: Use ONLY English and Korean. No Chinese characters (汉字/漢文), no Japanese (かな/カナ), no other languages. Format: "English sentence (한국어 의미)"`,
+        `Make a short English sentence with "${word}". Format: "English sentence | Korean translation". IMPORTANT: The Korean translation must use ONLY Korean alphabet (한글). No Chinese characters, no Japanese, no Romanization. Pure Korean only.`,
 
-        `Write a brief English sentence using "${word}". Just one sentence, 5-8 words. Casual tone. IMPORTANT: Use ONLY English and Korean. No Chinese characters (汉字/漢文), no Japanese (かな/カナ), no other languages. Format: "English sentence (한국어 의미)"`,
+        `Write a brief English sentence using "${word}". Format: "English sentence | Korean translation". IMPORTANT: The Korean translation must use ONLY Korean alphabet (한글). No Chinese characters, no Japanese, no Romanization. Pure Korean only.`,
 
-        `Create a short, memorable sentence with "${word}". One sentence, 5-8 words. IMPORTANT: Use ONLY English and Korean. No Chinese characters (汉字/漢文), no Japanese (かな/カナ), no other languages. Format: "English sentence (한국어 의미)"`,
+        `Create a short, memorable sentence with "${word}". Format: "English sentence | Korean translation". IMPORTANT: The Korean translation must use ONLY Korean alphabet (한글). No Chinese characters, no Japanese, no Romanization. Pure Korean only.`,
       ];
       prompt = sentenceStyles[Math.floor(Math.random() * sentenceStyles.length)];
       maxTokens = 60;
