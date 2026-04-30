@@ -22,13 +22,13 @@ export async function POST(request: Request) {
       maxTokens = 80;
     } else {
       const sentenceStyles = [
-        `Write a SHORT English sentence with "${word}". One sentence only, keep it brief and natural (5-8 words). Format: "English sentence (한글 의미)"`,
+        `Write a SHORT English sentence with "${word}". One sentence only, keep it brief and natural (5-8 words). IMPORTANT: Write Korean translation only, NO Chinese characters. Format: "English sentence (한국어 의미)"`,
 
-        `Make a short English sentence with "${word}". Keep it concise, about 5-8 words. Sound natural. Format: "English sentence (한글 의미)"`,
+        `Make a short English sentence with "${word}". Keep it concise, about 5-8 words. Sound natural. IMPORTANT: Write Korean translation only, NO Chinese characters. Format: "English sentence (한국어 의미)"`,
 
-        `Write a brief English sentence using "${word}". Just one sentence, 5-8 words. Casual tone. Format: "English sentence (한글 의미)"`,
+        `Write a brief English sentence using "${word}". Just one sentence, 5-8 words. Casual tone. IMPORTANT: Write Korean translation only, NO Chinese characters. Format: "English sentence (한국어 의미)"`,
 
-        `Create a short, memorable sentence with "${word}". One sentence, 5-8 words. Format: "English sentence (한글 의미)"`,
+        `Create a short, memorable sentence with "${word}". One sentence, 5-8 words. IMPORTANT: Write Korean translation only, NO Chinese characters. Format: "English sentence (한국어 의미)"`,
       ];
       prompt = sentenceStyles[Math.floor(Math.random() * sentenceStyles.length)];
       maxTokens = 60;

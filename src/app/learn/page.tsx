@@ -140,7 +140,8 @@ function LearnContent() {
         level: progressMap.get(w.id)?.level || 0,
         next_review: progressMap.get(w.id)?.next_review,
       })) || [];
-      setWords(wordsWithProgress);
+      const shuffled = wordsWithProgress.sort(() => Math.random() - 0.5);
+      setWords(shuffled);
       setLoading(false);
       return;
     }
@@ -168,8 +169,8 @@ function LearnContent() {
           level: p.level,
           next_review: p.next_review,
         }));
-
-      setWords(sortedWords);
+      const shuffled = sortedWords.sort(() => Math.random() - 0.5);
+      setWords(shuffled);
     } else {
       const { data } = await supabase
         .from("words")
@@ -220,7 +221,12 @@ const handleSwipe = useCallback(
 
       if (learnMode === "review") {
         const newLevel = known ? Math.min(currentWord.level + 1, 5) : 0;
-        const minutes = REVIEW_INTERVALS[newLevel];
+        let minutes = REVIEW_INTERVALS[newLevel];
+
+        if (!known) {
+          minutes = 60;
+        }
+
         const nextReview = new Date();
         nextReview.setMinutes(nextReview.getMinutes() + minutes);
 
@@ -295,6 +301,9 @@ const handleSwipe = useCallback(
 
   function handleShowAnswer() {
     setStep(2);
+    setTimeout(() => {
+      speak(currentWord?.word || "");
+    }, 100);
   }
 
   async function handleDontKnow() {
@@ -586,6 +595,9 @@ const handleSwipe = useCallback(
                     onClick={(e) => {
                       e.stopPropagation();
                       setStep(2);
+                      setTimeout(() => {
+                        speak(currentWord?.word || "");
+                      }, 100);
                     }}
                     className="w-full h-full bg-purple-500 text-white rounded-xl font-bold text-lg"
                   >
