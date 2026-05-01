@@ -18,34 +18,15 @@ export async function GET(request: Request) {
 
     const prompt = `당신은 영어 어원 전문가입니다. "${word}" 단어의 어원을 Wiktionary의 학술적 자료를 참고하여 알려주세요.
 
-**절대 준수 사항:**
-- "From", "dum", "ofs" 등 단독으로 떨어진 불완전한 데이터 출력 금지
-- 억지로 어원을 지어내지 않기
-- 지정된 JSON 스키마 외에는 절대 출력하지 않기
+**중요: 반드시 순수 JSON만 반환하세요. 어떤 텍스트도 앞에 붙이지 마세요.**
 
-**출력 형식 (아래를 반드시 준수):**
-\`\`\`
-{
-  "word": "단어",
-  "breakdown": "어근1 (의미) + 어근2 (의미)",
-  "origin": "어원 출처 (예: 라틴어, 고대 영어 등)",
-  "meaning": "어원이 의미로 이어지는 한줄 설명",
-  "related_words": ["관련단어1 (关联설명)", "관련단어2 (关联설명)", "관련단어3 (关联설명)"]
-}
-\`\`\`
+**출력 형식 (반드시 이 JSON 스키마만 사용):**
+{"word": "단어", "breakdown": "어근1 (의미) + 어근2 (의미)", "origin": "어원 출처", "meaning": "어원이 의미로 이어지는 한줄 설명", "related_words": ["관련단어1 (한글설명)", "관련단어2 (한글설명)", "관련단어3 (한글설명)"]}
 
 **어원 불분명시:**
-\`\`\`
-{
-  "word": "단어",
-  "breakdown": "불분명",
-  "origin": "유래가 불분명함",
-  "meaning": "기억하기: 연상 팁을 한 줄로",
-  "related_words": []
-}
-\`\`\`
+{"word": "단어", "breakdown": "불분명", "origin": "유래가 불분명함", "meaning": "기억하기: 연상팁", "related_words": []}
 
-한국어로 응답하고, 반드시 유효한 JSON만 반환하세요.`;
+절대 "단어의 어원을...", "Wiktionary...", 설명文章 등을 앞에 붙이지 마세요. 오직 유효한 JSON만 반환하세요.`;
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -56,8 +37,8 @@ export async function GET(request: Request) {
       body: JSON.stringify({
         model: "llama-3.1-8b-instant",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-        max_tokens: 200,
+        temperature: 0.3,
+        max_tokens: 400,
       }),
     });
 
@@ -75,28 +56,31 @@ export async function GET(request: Request) {
       return NextResponse.json({ etymology: null });
     }
 
-    let etymology = content;
+    let etymology = content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
 
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    const jsonStr = jsonMatch ? jsonMatch[1].trim() : content;
+    const firstBrace = etymology.indexOf("{");
+    const lastBrace = etymology.lastIndexOf("}");
 
-    try {
-      const parsed = JSON.parse(jsonStr);
-      if (parsed.word && parsed.breakdown) {
-        let formatted = `${parsed.word}: ${parsed.breakdown}\n`;
-        if (parsed.origin && parsed.origin !== "유래가 불분명함") {
-          formatted += `"${parsed.origin}" → ${parsed.meaning}\n`;
-        } else {
-          formatted += `${parsed.meaning}\n`;
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      const jsonStr = etymology.substring(firstBrace, lastBrace + 1);
+
+      try {
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.word && parsed.breakdown) {
+          let formatted = `${parsed.word}: ${parsed.breakdown}\n`;
+          if (parsed.origin && parsed.origin !== "유래가 불분명함") {
+            formatted += `"${parsed.origin}" → ${parsed.meaning}\n`;
+          } else {
+            formatted += `${parsed.meaning}\n`;
+          }
+          if (parsed.related_words && parsed.related_words.length > 0) {
+            formatted += `같은 조상: ${parsed.related_words.join(", ")}`;
+          }
+          etymology = formatted;
         }
-        if (parsed.related_words && parsed.related_words.length > 0) {
-          formatted += `같은 조상: ${parsed.related_words.join(", ")}`;
-        }
-        etymology = formatted;
+      } catch (e) {
+        console.error("JSON parse error:", e);
       }
-    } catch (e) {
-      console.error("JSON parse error:", e);
-      etymology = content.replace(/```(?:json)?\s*/g, "").replace(/```/g, "").trim();
     }
 
     etymology = etymology.length > 300 ? etymology.substring(0, 300) + "..." : etymology;
