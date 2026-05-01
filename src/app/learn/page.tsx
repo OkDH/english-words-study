@@ -451,9 +451,10 @@ const handleSwipe = useCallback(
               if (info.offset.x > 100) handleSwipe(true);
             }}
             style={{ x }}
-            onTap={step === 1 ? handleShowAnswer : undefined}
-            onPointerDown={(e) => {
+            onTap={() => {}}
+            onClick={(e) => {
               e.stopPropagation();
+              if (step === 1) handleShowAnswer();
             }}
           >
             <div className="flex-1 flex flex-col items-center justify-center">
