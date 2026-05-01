@@ -9,65 +9,48 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Word is required" }, { status: 400 });
     }
 
-    const response = await fetch(
-      `https://en.wiktionary.org/w/api.php?action=parse&page=${encodeURIComponent(word.toLowerCase())}&prop=wikitext&format=json&origin=*`
-    );
+    const apiKey = process.env.GROQ_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json({ etymology: null });
+    }
+
+    const prompt = `"${word}" 단어의 어원을 알려줘. 다음 형식으로 정확히 응답해:
+[단어]: 접두사 (의미) + 어근 (의미)
+"어원 의미" → 한글 의미
+같은 조상을 둔 단어: 단어1 (한글 설명), 단어2 (한글 설명), 단어3 (한글 설명)
+
+답변은 한국어로 하고, 반드시 위 형식을 지켜서 응답해.`;
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 200,
+      }),
+    });
 
     if (!response.ok) {
+      console.error("Groq API error:", response.status);
       return NextResponse.json({ etymology: null });
     }
 
     const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
 
-    if (!data.parse || !data.parse.wikitext) {
+    if (!content) {
       return NextResponse.json({ etymology: null });
     }
 
-    const wikitext = data.parse.wikitext["*"];
+    const etymology = content.length > 300 ? content.substring(0, 300) + "..." : content;
 
-    const etymologyMatch = wikitext.match(/==+\s*Etymology\s*==+\s*\n([\s\S]*?)(?=\n==|$)/i);
-
-    if (!etymologyMatch) {
-      return NextResponse.json({ etymology: null });
-    }
-
-    let etymology = etymologyMatch[1];
-
-    etymology = etymology
-      .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, "")
-      .replace(/<[^>]+>/g, "")
-      .replace(/\n+/g, " ")
-      .trim();
-
-    const templates: [RegExp, (...args: string[]) => string][] = [
-      [/\{\{inh\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/g, (_, lang, word, meaning) => `From ${word} (${meaning})`],
-      [/\{\{inh\|([^|]+)\|([^|]+)\|([^}]+)\}\}/g, (_, lang, word, extra) => `From ${word}`],
-      [/\{\{etymon\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/g, (_, lang, word, meaning) => `From ${word} (${meaning})`],
-      [/\{\{m\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/g, (_, lang, word, meaning) => word],
-      [/\{\{cog\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/g, (_, lang, word, meaning) => `${word} (${meaning})`],
-      [/\{\{af\|([^|]+)\|([^|]+)\|t2=([^}]+)\}\}/g, (_, prefix, base, meaning) => `${prefix}-${base}`],
-      [/\{\{gl\|([^|]+)\}\}/g, (_, text) => text],
-      [/\{\{semantic loan\|([^|]+)\|([^|]+)\|[^}]+\}\}/g, () => ""],
-      [/\{\{[^}]+\}\}/g, () => ""],
-    ];
-
-    for (const [regex, replacement] of templates) {
-      etymology = etymology.replace(regex, replacement as any);
-    }
-
-    etymology = etymology.replace(/\{\{[^}]*\}\}/g, "");
-
-    etymology = etymology
-      .replace(/\[\[([^|\]]*\|)?([^\]]*)\]\]/g, "$2")
-      .replace(/''+/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    if (etymology.length > 20) {
-      return NextResponse.json({ etymology: etymology.substring(0, 500) + (etymology.length > 500 ? "..." : "") });
-    }
-
-    return NextResponse.json({ etymology: null });
+    return NextResponse.json({ etymology });
   } catch (error) {
     console.error("Etymology API error:", error);
     return NextResponse.json({ etymology: null });

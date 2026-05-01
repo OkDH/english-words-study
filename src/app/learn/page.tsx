@@ -92,11 +92,14 @@ function LearnContent() {
       const { data } = await supabase
         .from("words")
         .select("*")
-        .limit(learnCount);
+        .order("id", { ascending: false });
 
       if (data && data.length > 0) {
         const shuffled = [...data].sort(() => Math.random() - 0.5);
-        setWords(shuffled);
+        const selected = shuffled.slice(0, learnCount);
+        setWords(selected);
+      } else {
+        setWords([]);
       }
       setLoading(false);
       return;
