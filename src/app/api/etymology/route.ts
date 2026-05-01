@@ -15,12 +15,36 @@ export async function GET(request: Request) {
       return NextResponse.json({ etymology: null });
     }
 
-    const prompt = `"${word}" 단어의 어원을 알려줘. 다음 형식으로 정확히 응답해:
-[단어]: 접두사 (의미) + 어근 (의미)
-"어원 의미" → 한글 의미
-같은 조상을 둔 단어: 단어1 (한글 설명), 단어2 (한글 설명), 단어3 (한글 설명)
+    const prompt = `당신은 영어 어원 전문가입니다. "${word}" 단어의 어원을 Wiktionary의 학술적 자료를 참고하여 알려주세요.
 
-답변은 한국어로 하고, 반드시 위 형식을 지켜서 응답해.`;
+**절대 준수 사항:**
+- "From", "dum", "ofs" 등 단독으로 떨어진 불완전한 데이터 출력 금지
+- 억지로 어원을 지어내지 않기
+- 지정된 JSON 스키마 외에는 절대 출력하지 않기
+
+**출력 형식 (아래를 반드시 준수):**
+\`\`\`
+{
+  "word": "단어",
+  "breakdown": "어근1 (의미) + 어근2 (의미)",
+  "origin": "어원 출처 (예: 라틴어, 고대 영어 등)",
+  "meaning": "어원이 의미로 이어지는 한줄 설명",
+  "related_words": ["관련단어1 (关联설명)", "관련단어2 (关联설명)", "관련단어3 (关联설명)"]
+}
+\`\`\`
+
+**어원 불분명시:**
+\`\`\`
+{
+  "word": "단어",
+  "breakdown": "불분명",
+  "origin": "유래가 불분명함",
+  "meaning": "기억하기: 연상 팁을 한 줄로",
+  "related_words": []
+}
+\`\`\`
+
+한국어로 응답하고, 반드시 유효한 JSON만 반환하세요.`;
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -48,7 +72,27 @@ export async function GET(request: Request) {
       return NextResponse.json({ etymology: null });
     }
 
-    const etymology = content.length > 300 ? content.substring(0, 300) + "..." : content;
+    let etymology = content;
+
+    try {
+      const parsed = JSON.parse(content);
+      if (parsed.word && parsed.breakdown) {
+        let formatted = `${parsed.word}: ${parsed.breakdown}\n`;
+        if (parsed.origin && parsed.origin !== "유래가 불분명함") {
+          formatted += `"${parsed.origin}" → ${parsed.meaning}\n`;
+        } else {
+          formatted += `${parsed.meaning}\n`;
+        }
+        if (parsed.related_words && parsed.related_words.length > 0) {
+          formatted += `같은 조상: ${parsed.related_words.join(", ")}`;
+        }
+        etymology = formatted;
+      }
+    } catch {
+      etymology = content;
+    }
+
+    etymology = etymology.length > 300 ? etymology.substring(0, 300) + "..." : etymology;
 
     return NextResponse.json({ etymology });
   } catch (error) {
