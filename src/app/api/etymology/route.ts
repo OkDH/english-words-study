@@ -12,6 +12,7 @@ export async function GET(request: Request) {
     const apiKey = process.env.GROQ_API_KEY;
 
     if (!apiKey) {
+      console.error("GROQ_API_KEY is not set");
       return NextResponse.json({ etymology: null });
     }
 
@@ -61,11 +62,13 @@ export async function GET(request: Request) {
     });
 
     if (!response.ok) {
-      console.error("Groq API error:", response.status);
+      const errorText = await response.text();
+      console.error("Groq API error:", response.status, errorText);
       return NextResponse.json({ etymology: null });
     }
 
     const data = await response.json();
+    console.log("Groq response:", data);
     const content = data.choices?.[0]?.message?.content?.trim();
 
     if (!content) {
@@ -74,8 +77,11 @@ export async function GET(request: Request) {
 
     let etymology = content;
 
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const jsonStr = jsonMatch ? jsonMatch[1].trim() : content;
+
     try {
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(jsonStr);
       if (parsed.word && parsed.breakdown) {
         let formatted = `${parsed.word}: ${parsed.breakdown}\n`;
         if (parsed.origin && parsed.origin !== "유래가 불분명함") {
@@ -88,8 +94,9 @@ export async function GET(request: Request) {
         }
         etymology = formatted;
       }
-    } catch {
-      etymology = content;
+    } catch (e) {
+      console.error("JSON parse error:", e);
+      etymology = content.replace(/```(?:json)?\s*/g, "").replace(/```/g, "").trim();
     }
 
     etymology = etymology.length > 300 ? etymology.substring(0, 300) + "..." : etymology;
