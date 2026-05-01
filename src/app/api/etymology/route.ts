@@ -40,15 +40,15 @@ export async function GET(request: Request) {
       .trim();
 
     const templates: [RegExp, (...args: string[]) => string][] = [
-      [/^\{\{inh\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/, (_, lang, word, meaning) => `From ${word} (${meaning})`],
-      [/^\{\{inh\|([^|]+)\|([^|]+)\|([^}]+)\}\}/, (_, lang, word, extra) => `From ${word}`],
-      [/^\{\{etymon\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/, (_, lang, word, meaning) => `From ${word} (${meaning})`],
-      [/^\{\{m\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/, (_, lang, word, meaning) => word],
-      [/^\{\{cog\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/, (_, lang, word, meaning) => `${word} (${meaning})`],
-      [/^\{\{af\|([^|]+)\|([^|]+)\|t2=([^}]+)\}\}/, (_, prefix, base, meaning) => `${prefix}-${base}`],
-      [/^\{\{gl\|([^|]+)\}\}/, (_, text) => text],
-      [/^\{\{semantic loan\|([^|]+)\|([^|]+)\|[^}]+\}\}/, () => ""],
-      [/^\{\{[^}]+\}\}/, () => ""],
+      [/\{\{inh\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/g, (_, lang, word, meaning) => `From ${word} (${meaning})`],
+      [/\{\{inh\|([^|]+)\|([^|]+)\|([^}]+)\}\}/g, (_, lang, word, extra) => `From ${word}`],
+      [/\{\{etymon\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/g, (_, lang, word, meaning) => `From ${word} (${meaning})`],
+      [/\{\{m\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/g, (_, lang, word, meaning) => word],
+      [/\{\{cog\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/g, (_, lang, word, meaning) => `${word} (${meaning})`],
+      [/\{\{af\|([^|]+)\|([^|]+)\|t2=([^}]+)\}\}/g, (_, prefix, base, meaning) => `${prefix}-${base}`],
+      [/\{\{gl\|([^|]+)\}\}/g, (_, text) => text],
+      [/\{\{semantic loan\|([^|]+)\|([^|]+)\|[^}]+\}\}/g, () => ""],
+      [/\{\{[^}]+\}\}/g, () => ""],
     ];
 
     for (const [regex, replacement] of templates) {
