@@ -45,7 +45,6 @@ export default function DashboardPage() {
     const { data: words } = await supabase
       .from("words")
       .select("*")
-      .eq("user_id", userId)
       .order("created_at", { ascending: true });
 
     const { data: progress } = await supabase
@@ -67,19 +66,20 @@ export default function DashboardPage() {
     const now = new Date();
     const progressMap = new Map(progress?.map(p => [p.word_id, p]) || []);
 
-    const totalWords = words.length;
+    const userWords = words.filter(w => w.user_id === userId);
+    const totalWords = userWords.length;
     const masteredWords = progress?.filter(p => p.level >= 5).length || 0;
 
     const wordsByLevel = [0, 1, 2, 3, 4, 5].map(level => ({
       level,
-      count: progress?.filter(p => p.level === level).length || 0,
+      count: userWords.filter(w => (progressMap.get(w.id)?.level || 0) === level).length,
     }));
 
     const growthData: { date: string; count: number }[] = [];
     for (let i = 30; i >= 0; i--) {
       const date = subDays(now, i);
       const dateStr = format(date, "MM/dd");
-      const countByDate = words.filter(w => {
+      const countByDate = userWords.filter(w => {
         const created = new Date(w.created_at);
         return format(created, "yyyy-MM-dd") === format(date, "yyyy-MM-dd");
       }).length;
@@ -106,7 +106,7 @@ export default function DashboardPage() {
       forgotCounts[log.word_id] = (forgotCounts[log.word_id] || 0) + 1;
     });
 
-    const hardestWords = words
+    const hardestWords = userWords
       .filter(w => forgotCounts[w.id] > 0)
       .sort((a, b) => (forgotCounts[b.id] || 0) - (forgotCounts[a.id] || 0))
       .slice(0, 10)

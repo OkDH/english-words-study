@@ -54,7 +54,6 @@ useEffect(() => {
     const { data, count } = await supabase
       .from("words")
       .select("*", { count: "exact" })
-      .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
     const { data: progress } = await supabase
