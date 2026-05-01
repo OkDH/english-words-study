@@ -452,6 +452,9 @@ const handleSwipe = useCallback(
             }}
             style={{ x }}
             onTap={step === 1 ? handleShowAnswer : undefined}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
           >
             <div className="flex-1 flex flex-col items-center justify-center">
               {cardDirection === 'reverse' ? (
