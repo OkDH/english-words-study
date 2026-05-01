@@ -289,7 +289,17 @@ const handleSwipe = useCallback(
     if (!showHint) {
       setGeneratingHintContent(true);
 
-      const etymology = await fetchEtymology(currentWord?.word || "");
+      let etymology = currentWord?.etymology || null;
+
+      if (!etymology && currentWord?.word) {
+        etymology = await fetchEtymology(currentWord.word);
+        if (etymology) {
+          await supabase
+            .from("words")
+            .update({ etymology })
+            .eq("id", currentWord.id);
+        }
+      }
 
       setHintEtymology(etymology);
       setShowHint(true);

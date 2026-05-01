@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { generateExample } from "@/lib/groq";
-import { fetchPhonetic } from "@/lib/phonetic";
+import { fetchPhonetic, fetchEtymology } from "@/lib/phonetic";
 
 export default function AddPage() {
   const router = useRouter();
@@ -33,9 +33,10 @@ export default function AddPage() {
       return;
     }
 
-    const [aiExample, phoneticResult] = await Promise.all([
+    const [aiExample, phoneticResult, etymology] = await Promise.all([
       generateExample(word.trim()),
       fetchPhonetic(word.trim()),
+      fetchEtymology(word.trim()),
     ]);
 
     const userId = localStorage.getItem("selectedUser") || "dong";
@@ -46,6 +47,7 @@ export default function AddPage() {
       phonetic: phoneticResult.phonetic,
       example_note: note.trim() || null,
       ai_example: aiExample,
+      etymology: etymology,
       next_review: new Date().toISOString(),
       level: 0,
       user_id: userId,

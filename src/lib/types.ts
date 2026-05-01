@@ -5,6 +5,7 @@ export interface Word {
   phonetic: string | null;
   example_note: string | null;
   ai_example: string | null;
+  etymology: string | null;
   level: number;
   next_review: string;
   tags: string[];

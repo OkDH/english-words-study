@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { generateExample } from "@/lib/groq";
-import { fetchPhonetic } from "@/lib/phonetic";
+import { fetchPhonetic, fetchEtymology } from "@/lib/phonetic";
 import type { Word } from "@/lib/types";
 
 export default function EditPage() {
@@ -17,6 +17,7 @@ export default function EditPage() {
   const [phonetic, setPhonetic] = useState("");
   const [note, setNote] = useState("");
   const [aiExample, setAiExample] = useState("");
+  const [etymology, setEtymology] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -38,6 +39,7 @@ export default function EditPage() {
       setPhonetic(data.phonetic || "");
       setNote(data.example_note || "");
       setAiExample(data.ai_example || "");
+      setEtymology(data.etymology || "");
     }
     setLoading(false);
   }
@@ -60,6 +62,16 @@ export default function EditPage() {
     }
   }
 
+  async function handleGenerateEtymology() {
+    if (!word.trim()) return;
+    setRegenerating(true);
+    const result = await fetchEtymology(word.trim());
+    if (result) {
+      setEtymology(result);
+    }
+    setRegenerating(false);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!word.trim() || !meaning.trim()) return;
@@ -74,6 +86,7 @@ export default function EditPage() {
         phonetic: phonetic.trim() || null,
         example_note: note.trim() || null,
         ai_example: aiExample.trim() || null,
+        etymology: etymology.trim() || null,
       })
       .eq("id", id);
 
@@ -175,6 +188,27 @@ export default function EditPage() {
             onChange={(e) => setAiExample(e.target.value)}
             rows={2}
             placeholder="AI가 생성한 예문입니다. 직접 수정할 수 있어요."
+            className="w-full p-3 border rounded-xl text-base resize-none"
+          />
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="block text-sm font-medium">어원</label>
+            <button
+              type="button"
+              onClick={handleGenerateEtymology}
+              disabled={regenerating || !word.trim()}
+              className="text-sm text-primary disabled:opacity-50"
+            >
+              {regenerating ? "생성 중..." : "🔄 생성"}
+            </button>
+          </div>
+          <textarea
+            value={etymology}
+            onChange={(e) => setEtymology(e.target.value)}
+            rows={3}
+            placeholder="Groq API가 생성한 어원입니다."
             className="w-full p-3 border rounded-xl text-base resize-none"
           />
         </div>
