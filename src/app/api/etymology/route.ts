@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     }
 
     const response = await fetch(
-      `https://en.wiktionary.org/api/rest_v1/page/summary/${encodeURIComponent(word.toLowerCase())}`
+      `https://en.wiktionary.org/w/api.php?action=parse&page=${encodeURIComponent(word.toLowerCase())}&prop=wikitext&format=json&origin=*`
     );
 
     if (!response.ok) {
@@ -19,27 +19,33 @@ export async function GET(request: Request) {
 
     const data = await response.json();
 
-    let etymology = null;
+    if (!data.parse || !data.parse.wikitext) {
+      return NextResponse.json({ etymology: null });
+    }
 
-    if (data.extract) {
-      const extract = data.extract;
-      const lowerExtract = extract.toLowerCase();
+    const wikitext = data.parse.wikitext["*"];
 
-      const etymologyIndex = lowerExtract.indexOf("etymology");
+    const etymologyMatch = wikitext.match(/==+\s*Etymology\s*==+\s*\n([\s\S]*?)(?=\n==|$)/i);
 
-      if (etymologyIndex !== -1) {
-        let etymologyText = extract.substring(etymologyIndex);
-        const nextSectionIndex = etymologyText.indexOf("\n\n");
-        if (nextSectionIndex !== -1 && nextSectionIndex < 1000) {
-          etymologyText = etymologyText.substring(0, nextSectionIndex);
-        }
-        etymology = etymologyText.trim();
-      } else if (extract.length > 20 && extract.length < 800) {
-        etymology = extract;
+    if (etymologyMatch) {
+      let etymology = etymologyMatch[1].trim();
+
+      etymology = etymology
+        .replace(/\{\{[^}]*\}\}/g, "")
+        .replace(/\[\[([^|\]]*\|)?([^\]]*)\]\]/g, "$2")
+        .replace(/''+/g, "")
+        .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, "")
+        .replace(/<[^>]+>/g, "")
+        .replace(/\n+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (etymology.length > 20) {
+        return NextResponse.json({ etymology: etymology.substring(0, 500) + (etymology.length > 500 ? "..." : "") });
       }
     }
 
-    return NextResponse.json({ etymology });
+    return NextResponse.json({ etymology: null });
   } catch (error) {
     console.error("Etymology API error:", error);
     return NextResponse.json({ etymology: null });
