@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence, useMotionValue } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { generateExample, generateExamples, generatePassage } from "@/lib/groq";
-import { searchImage } from "@/lib/unsplash";
 import { useTTS } from "@/lib/useTTS";
+import { fetchEtymology } from "@/lib/phonetic";
 import type { Word } from "@/lib/types";
 
 const REVIEW_INTERVALS = [
@@ -40,9 +40,7 @@ function LearnContent() {
   const [generatingHint, setGeneratingHint] = useState(false);
   const [passage, setPassage] = useState<Passage | null>(null);
   const [generatingPassage, setGeneratingPassage] = useState(false);
-  const [hintImage, setHintImage] = useState<string | null>(null);
-  const [hintExample, setHintExample] = useState<string | null>(null);
-  const [hintExamples, setHintExamples] = useState<string[]>([]);
+  const [hintEtymology, setHintEtymology] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
   const [generatingHintContent, setGeneratingHintContent] = useState(false);
   const [cardDirection, setCardDirection] = useState<'normal' | 'reverse'>('normal');
@@ -288,20 +286,14 @@ const handleSwipe = useCallback(
     if (!showHint) {
       setGeneratingHintContent(true);
 
-      const [image, examples] = await Promise.all([
-        searchImage(currentWord?.word || ""),
-        generateExamples(currentWord?.word || "", 3)
-      ]);
+      const etymology = await fetchEtymology(currentWord?.word || "");
 
-      setHintImage(image);
-      setHintExamples(examples);
+      setHintEtymology(etymology);
       setShowHint(true);
       setGeneratingHintContent(false);
     } else {
       setShowHint(false);
-      setHintImage(null);
-      setHintExample(null);
-      setHintExamples([]);
+      setHintEtymology(null);
       moveToNext();
     }
   }
@@ -540,40 +532,38 @@ const handleSwipe = useCallback(
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
-                    className="absolute inset-0 bg-white dark:bg-slate-800 rounded-3xl flex flex-col items-center justify-center p-6"
+                    className="absolute inset-0 bg-white dark:bg-slate-800 rounded-3xl flex flex-col items-center justify-center p-6 overflow-y-auto"
                   >
                     {generatingHintContent ? (
                       <div className="text-center">
-                        <div className="text-4xl mb-4">🔍</div>
-                        <p className="text-slate-500">이미지 & 예문 생성중...</p>
+                        <div className="text-4xl mb-4">📖</div>
+                        <p className="text-slate-500">어원 찾는 중...</p>
                       </div>
                     ) : (
                       <>
-                        {hintImage && (
-                          <img
-                            src={hintImage}
-                            alt="hint"
-                            className="w-48 h-48 object-cover rounded-xl mb-4"
-                          />
-                        )}
-                        {hintExamples.length > 0 && (
-                          <div className="space-y-2 mb-6 max-w-md">
-                            {hintExamples.map((example, i) => (
-                              <p key={i} className="text-base text-slate-700 dark:text-slate-300 text-center">
-                                💡 {example}
+                        {hintEtymology ? (
+                          <div className="text-center max-w-md">
+                            <div className="text-2xl mb-4">📖 어원</div>
+                            <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-700 rounded-2xl p-4 mb-6">
+                              <p className="text-base leading-relaxed text-slate-700 dark:text-slate-200 whitespace-pre-wrap">
+                                {hintEtymology}
                               </p>
-                            ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <div className="text-4xl mb-4">😔</div>
+                            <p className="text-slate-500 mb-2">어원을 찾을 수 없어요</p>
+                            <p className="text-sm text-slate-400">다른 출처에서 검색해보세요</p>
                           </div>
                         )}
                         <button
                           onClick={() => {
                             setShowHint(false);
-                            setHintImage(null);
-                            setHintExample(null);
-                            setHintExamples([]);
+                            setHintEtymology(null);
                             moveToNext();
                           }}
-                          className="bg-danger text-white px-8 py-3 rounded-xl font-bold"
+                          className="bg-primary text-white px-8 py-3 rounded-xl font-bold"
                         >
                           확인
                         </button>
