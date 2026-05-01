@@ -27,22 +27,44 @@ export async function GET(request: Request) {
 
     const etymologyMatch = wikitext.match(/==+\s*Etymology\s*==+\s*\n([\s\S]*?)(?=\n==|$)/i);
 
-    if (etymologyMatch) {
-      let etymology = etymologyMatch[1].trim();
+    if (!etymologyMatch) {
+      return NextResponse.json({ etymology: null });
+    }
 
-      etymology = etymology
-        .replace(/\{\{[^}]*\}\}/g, "")
-        .replace(/\[\[([^|\]]*\|)?([^\]]*)\]\]/g, "$2")
-        .replace(/''+/g, "")
-        .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, "")
-        .replace(/<[^>]+>/g, "")
-        .replace(/\n+/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
+    let etymology = etymologyMatch[1];
 
-      if (etymology.length > 20) {
-        return NextResponse.json({ etymology: etymology.substring(0, 500) + (etymology.length > 500 ? "..." : "") });
-      }
+    etymology = etymology
+      .replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, "")
+      .replace(/<[^>]+>/g, "")
+      .replace(/\n+/g, " ")
+      .trim();
+
+    const templates: [RegExp, (...args: string[]) => string][] = [
+      [/^\{\{inh\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/, (_, lang, word, meaning) => `From ${word} (${meaning})`],
+      [/^\{\{inh\|([^|]+)\|([^|]+)\|([^}]+)\}\}/, (_, lang, word, extra) => `From ${word}`],
+      [/^\{\{etymon\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/, (_, lang, word, meaning) => `From ${word} (${meaning})`],
+      [/^\{\{m\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/, (_, lang, word, meaning) => word],
+      [/^\{\{cog\|([^|]+)\|([^|]+)\|t=([^}]+)\}\}/, (_, lang, word, meaning) => `${word} (${meaning})`],
+      [/^\{\{af\|([^|]+)\|([^|]+)\|t2=([^}]+)\}\}/, (_, prefix, base, meaning) => `${prefix}-${base}`],
+      [/^\{\{gl\|([^|]+)\}\}/, (_, text) => text],
+      [/^\{\{semantic loan\|([^|]+)\|([^|]+)\|[^}]+\}\}/, () => ""],
+      [/^\{\{[^}]+\}\}/, () => ""],
+    ];
+
+    for (const [regex, replacement] of templates) {
+      etymology = etymology.replace(regex, replacement as any);
+    }
+
+    etymology = etymology.replace(/\{\{[^}]*\}\}/g, "");
+
+    etymology = etymology
+      .replace(/\[\[([^|\]]*\|)?([^\]]*)\]\]/g, "$2")
+      .replace(/''+/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (etymology.length > 20) {
+      return NextResponse.json({ etymology: etymology.substring(0, 500) + (etymology.length > 500 ? "..." : "") });
     }
 
     return NextResponse.json({ etymology: null });
