@@ -48,7 +48,7 @@ export async function fetchPhonetic(word: string): Promise<PhoneticResult> {
 export async function fetchEtymology(word: string): Promise<string | null> {
   try {
     const response = await fetch(
-      `https://en.wiktionary.org/api/rest_v1/page/summary/${encodeURIComponent(word.toLowerCase())}`
+      `/api/etymology?word=${encodeURIComponent(word)}`
     );
 
     if (!response.ok) {
@@ -56,29 +56,7 @@ export async function fetchEtymology(word: string): Promise<string | null> {
     }
 
     const data = await response.json();
-
-    if (data.extract) {
-      const extract = data.extract;
-      const etymologyIndex = extract.toLowerCase().indexOf("etymology");
-
-      if (etymologyIndex !== -1) {
-        const etymologyText = extract.substring(etymologyIndex);
-        const nextSectionIndex = etymologyText.indexOf("\n\n");
-        if (nextSectionIndex !== -1) {
-          return etymologyText.substring(0, nextSectionIndex).trim();
-        }
-        return etymologyText.substring(0, 500).trim() + "...";
-      }
-
-      const lines = extract.split("\n");
-      if (lines.length > 1 && lines[0].length < 50) {
-        return lines.slice(0, 3).join(" ").substring(0, 500);
-      }
-
-      return extract.substring(0, 500) + (extract.length > 500 ? "..." : "");
-    }
-
-    return null;
+    return data.etymology || null;
   } catch (error) {
     console.error("Etymology fetch error:", error);
     return null;
