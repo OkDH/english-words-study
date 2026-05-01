@@ -48,6 +48,7 @@ export default function AddPage() {
       ai_example: aiExample,
       next_review: new Date().toISOString(),
       level: 0,
+      user_id: userId,
     });
 
     if (!error) {
