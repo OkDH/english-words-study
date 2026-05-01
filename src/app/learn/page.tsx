@@ -476,11 +476,9 @@ const handleSwipe = useCallback(
                         <p className="text-slate-500 text-lg mt-1">{currentWord.phonetic}</p>
                       )}
                       <button
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                        }}
                         onClick={(e) => {
                           e.stopPropagation();
+                          e.preventDefault();
                           speak(currentWord?.word || "");
                         }}
                         className="text-3xl mt-3 relative z-10"
@@ -499,12 +497,9 @@ const handleSwipe = useCallback(
                     <p className="text-slate-500 text-lg mt-1">{currentWord.phonetic}</p>
                   )}
                   <button
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                    }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      e.preventDefault();
                       speak(currentWord?.word || "");
                     }}
                     className="text-3xl mt-3 relative z-10"
