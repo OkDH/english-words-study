@@ -478,12 +478,17 @@ const handleSwipe = useCallback(
                       <button
                         onPointerDown={(e) => {
                           e.stopPropagation();
+                          e.preventDefault();
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
+                          e.preventDefault();
                           speak(currentWord?.word || "");
                         }}
-                        className="text-3xl mt-3"
+                        onPointerUp={(e) => {
+                          e.stopPropagation();
+                        }}
+                        className="text-3xl mt-3 relative z-10"
                       >
                         🔊
                       </button>
@@ -501,12 +506,17 @@ const handleSwipe = useCallback(
                   <button
                     onPointerDown={(e) => {
                       e.stopPropagation();
+                      e.preventDefault();
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      e.preventDefault();
                       speak(currentWord?.word || "");
                     }}
-                    className="text-3xl mt-3"
+                    onPointerUp={(e) => {
+                      e.stopPropagation();
+                    }}
+                    className="text-3xl mt-3 relative z-10"
                   >
                     🔊
                   </button>
