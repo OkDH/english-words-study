@@ -477,7 +477,7 @@ const handleSwipe = useCallback(
                           e.preventDefault();
                           speak(currentWord?.word || "");
                         }}
-                        className="text-3xl mt-3 relative z-10"
+                        className="text-3xl mt-3"
                       >
                         🔊
                       </button>
@@ -498,7 +498,7 @@ const handleSwipe = useCallback(
                       e.preventDefault();
                       speak(currentWord?.word || "");
                     }}
-                    className="text-3xl mt-3 relative z-10"
+                    className="text-3xl mt-3"
                   >
                     🔊
                   </button>
@@ -532,7 +532,7 @@ const handleSwipe = useCallback(
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
-                    className="absolute inset-0 bg-white dark:bg-slate-800 rounded-3xl flex flex-col items-center justify-center p-6 overflow-y-auto"
+                    className="absolute inset-0 z-50 bg-white dark:bg-slate-800 rounded-3xl flex flex-col items-center justify-center p-6 overflow-y-auto"
                   >
                     {generatingHintContent ? (
                       <div className="text-center">
