@@ -62,6 +62,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Empty response from Groq", etymology: null }, { status: 500 });
     }
 
+    console.log("Raw Groq content:", content);
+
     let etymology = content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
 
     const firstBrace = etymology.indexOf("{");
@@ -83,10 +85,14 @@ export async function GET(request: Request) {
             formatted += `같은 조상: ${parsed.related_words.join(", ")}`;
           }
           etymology = formatted;
+        } else {
+          console.error("Parsed JSON missing word or breakdown:", parsed);
         }
       } catch (e) {
-        console.error("JSON parse error:", e);
+        console.error("JSON parse error, content was:", etymology);
       }
+    } else {
+      console.error("No JSON found in content:", etymology);
     }
 
     etymology = etymology.length > 300 ? etymology.substring(0, 300) + "..." : etymology;
