@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
     if (!apiKey) {
       console.error("GROQ_API_KEY is not set");
-      return NextResponse.json({ etymology: null });
+      return NextResponse.json({ error: "GROQ_API_KEY not configured", etymology: null }, { status: 500 });
     }
 
     const prompt = `당신은 영어 어원 전문가입니다. "${word}" 단어의 어원을 Wiktionary의 학술적 자료를 참고하여 알려주세요.
@@ -45,15 +45,21 @@ export async function GET(request: Request) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Groq API error:", response.status, errorText);
-      return NextResponse.json({ etymology: null });
+      return NextResponse.json({ error: `Groq API error: ${response.status}`, etymology: null }, { status: 500 });
     }
 
     const data = await response.json();
+
+    if (!data.choices || !data.choices[0]) {
+      console.error("Groq response missing choices:", data);
+      return NextResponse.json({ error: "Invalid Groq response", etymology: null }, { status: 500 });
+    }
     console.log("Groq response:", data);
     const content = data.choices?.[0]?.message?.content?.trim();
 
     if (!content) {
-      return NextResponse.json({ etymology: null });
+      console.error("Groq returned empty content");
+      return NextResponse.json({ error: "Empty response from Groq", etymology: null }, { status: 500 });
     }
 
     let etymology = content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
