@@ -556,7 +556,11 @@ const handleSwipe = useCallback(
                       <>
                         {hintEtymology ? (
                           <div className="text-center max-w-md">
-                            <div className="text-2xl mb-4">📖 어원</div>
+                            <div className="text-2xl mb-2">📖 어원</div>
+                            <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-2xl p-3 mb-2">
+                              <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{currentWord?.word}</p>
+                              <p className="text-base text-slate-500 dark:text-slate-400">{currentWord?.meaning}</p>
+                            </div>
                             <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-700 rounded-2xl p-4 mb-6">
                               <p className="text-base leading-relaxed text-slate-700 dark:text-slate-200 whitespace-pre-wrap">
                                 {hintEtymology}
