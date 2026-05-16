@@ -227,7 +227,7 @@ const handleSwipe = useCallback(
         ));
       }
 
-      logLearning(currentWord.id, currentWord.word, known ? "learned" : "forgot");
+logLearning(currentWord.id, currentWord.word, known ? "learned" : "forgot");
       moveToNext();
     },
     [currentWord, learnMode, words]
@@ -578,6 +578,7 @@ const handleSwipe = useCallback(
                           onClick={() => {
                             setShowHint(false);
                             setHintEtymology(null);
+                            logLearning(currentWord.id, currentWord.word, "forgot");
                             moveToNext();
                           }}
                           className="bg-primary text-white px-8 py-3 rounded-xl font-bold"

@@ -16,6 +16,8 @@ import {
   PieChart,
   Pie,
   Cell,
+  BarChart,
+  Bar,
 } from "recharts";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 
@@ -28,6 +30,7 @@ interface DashboardData {
   heatmapData: { date: string; count: number }[];
   hardestWords: { word: Word; failCount: number }[];
   forecast: { date: string; count: number }[];
+  newWordsCount: number;
 }
 
 export default function DashboardPage() {
@@ -72,7 +75,7 @@ export default function DashboardPage() {
 
     const wordsByLevel = [0, 1, 2, 3, 4, 5].map(level => ({
       level,
-      count: userWords.filter(w => (progressMap.get(w.id)?.level || 0) === level).length,
+      count: progress?.filter(p => p.level === level).length || 0,
     }));
 
     const growthData: { date: string; count: number }[] = [];
@@ -129,6 +132,7 @@ export default function DashboardPage() {
     }
 
     const streak = calculateStreak(logs || []);
+    const newWordsCount = wordsByLevel[0]?.count || 0;
 
     setData({
       totalWords,
@@ -139,6 +143,7 @@ export default function DashboardPage() {
       heatmapData,
       hardestWords,
       forecast,
+      newWordsCount,
     });
     setLoading(false);
   }
@@ -218,6 +223,50 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {data.hardestWords.length > 0 && (
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm mb-6">
+              <h2 className="text-lg font-bold">😥 실패한 단어 Top 10</h2>
+              <p className="text-xs text-slate-500 mb-3">실패 횟수가 많은 단어</p>
+              <div className="space-y-2">
+                {data.hardestWords.map((item, i) => (
+                  <div
+                    key={item.word.id}
+                    className="flex justify-between items-center p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"
+                  >
+                    <div>
+                      <span className="font-bold">{i + 1}.</span>
+                      <span className="ml-2 font-semibold">{item.word.word}</span>
+                      <span className="ml-2 text-slate-500">{item.word.meaning}</span>
+                    </div>
+                    <div className="text-danger text-sm">
+                      {item.failCount}회 실패
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm mb-6">
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <h2 className="text-lg font-bold">📊 레벨별 단어 수</h2>
+                <p className="text-xs text-slate-500">Learning 단어 수 (신규 {data.newWordsCount}개 제외)</p>
+              </div>
+            </div>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.wordsByLevel.filter(w => w.level > 0)}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="level" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#6366F1" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
           <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm mb-6">
             <h2 className="text-lg font-bold">📈 일별 추가 단어</h2>
             <p className="text-xs text-slate-500 mb-3">매일 새로 추가한 단어 수</p>
@@ -273,32 +322,8 @@ export default function DashboardPage() {
                   {item.count}
                 </div>
               ))}
-            </div>
+</div>
           </div>
-
-          {data.hardestWords.length > 0 && (
-            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm">
-              <h2 className="text-lg font-bold">😥 실패한 단어 Top 10</h2>
-              <p className="text-xs text-slate-500 mb-3">실패 횟수가 많은 단어</p>
-              <div className="space-y-2">
-                {data.hardestWords.map((item, i) => (
-                  <div
-                    key={item.word.id}
-                    className="flex justify-between items-center p-2 bg-slate-100 dark:bg-slate-700 rounded-lg"
-                  >
-                    <div>
-                      <span className="font-bold">{i + 1}.</span>
-                      <span className="ml-2 font-semibold">{item.word.word}</span>
-                      <span className="ml-2 text-slate-500">{item.word.meaning}</span>
-                    </div>
-                    <div className="text-danger text-sm">
-                      {item.failCount}회 실패
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div className="mt-6">
             <Link
