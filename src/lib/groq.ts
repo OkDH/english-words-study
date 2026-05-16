@@ -1,12 +1,12 @@
 const exampleCache = new Map<string, string>();
 const passageCache = new Map<string, string>();
 
-async function callGenerateAPI(word: string, type: "example" | "passage"): Promise<string | null> {
+async function callGenerateAPI(word: string, type: "example" | "passage", meaning?: string): Promise<string | null> {
   try {
     const response = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ word, type }),
+      body: JSON.stringify({ word, type, meaning }),
     });
 
     if (!response.ok) {
@@ -21,23 +21,24 @@ async function callGenerateAPI(word: string, type: "example" | "passage"): Promi
   }
 }
 
-export async function generateExample(word: string, forceRefresh = false): Promise<string | null> {
-  if (!forceRefresh && exampleCache.has(word)) {
-    return exampleCache.get(word) || null;
+export async function generateExample(word: string, meaning?: string, forceRefresh = false): Promise<string | null> {
+  const cacheKey = meaning ? `${word}|${meaning}` : word;
+  if (!forceRefresh && exampleCache.has(cacheKey)) {
+    return exampleCache.get(cacheKey) || null;
   }
 
-  const text = await callGenerateAPI(word, "example");
+  const text = await callGenerateAPI(word, "example", meaning);
 
   if (text && text.length > 0) {
-    exampleCache.set(word, text);
+    exampleCache.set(cacheKey, text);
     return text;
   }
   return null;
 }
 
-export async function generateExamples(word: string, count: number = 3): Promise<string[]> {
+export async function generateExamples(word: string, meaning?: string, count: number = 3): Promise<string[]> {
   const promises = Array.from({ length: count }, () =>
-    generateExample(word, true)
+    generateExample(word, meaning, true)
   );
   const results = await Promise.all(promises);
   return results.filter((r): r is string => r !== null);

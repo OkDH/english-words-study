@@ -7,7 +7,7 @@ const groq = new Groq({
 
 export async function POST(request: Request) {
   try {
-    const { word, type } = await request.json();
+    const { word, type, meaning } = await request.json();
 
     if (!word) {
       return NextResponse.json({ error: "Word is required" }, { status: 400 });
@@ -21,14 +21,15 @@ export async function POST(request: Request) {
       prompt = `Write a SHORT English sentence (one sentence only) using: ${words}. Use ALL the words naturally. Keep it concise. Just write the sentence, nothing else.`;
       maxTokens = 80;
     } else {
+      const meaningContext = meaning ? ` Use the Korean meaning "${meaning}" to create a contextually appropriate sentence.` : "";
       const sentenceStyles = [
-        `Write a SHORT English sentence with "${word}". Format: "English sentence | Korean translation". IMPORTANT: The Korean translation must use ONLY Korean alphabet (한글). No Chinese characters, no Japanese, no Romanization. Pure Korean only.`,
+        `Write a SHORT English sentence with "${word}".${meaningContext} Format: "English sentence | Korean translation". IMPORTANT: The Korean translation must use ONLY Korean alphabet (한글). No Chinese characters, no Japanese, no Romanization. Pure Korean only.`,
 
-        `Make a short English sentence with "${word}". Format: "English sentence | Korean translation". IMPORTANT: The Korean translation must use ONLY Korean alphabet (한글). No Chinese characters, no Japanese, no Romanization. Pure Korean only.`,
+        `Make a short English sentence with "${word}".${meaningContext} Format: "English sentence | Korean translation". IMPORTANT: The Korean translation must use ONLY Korean alphabet (한글). No Chinese characters, no Japanese, no Romanization. Pure Korean only.`,
 
-        `Write a brief English sentence using "${word}". Format: "English sentence | Korean translation". IMPORTANT: The Korean translation must use ONLY Korean alphabet (한글). No Chinese characters, no Japanese, no Romanization. Pure Korean only.`,
+        `Write a brief English sentence using "${word}".${meaningContext} Format: "English sentence | Korean translation". IMPORTANT: The Korean translation must use ONLY Korean alphabet (한글). No Chinese characters, no Japanese, no Romanization. Pure Korean only.`,
 
-        `Create a short, memorable sentence with "${word}". Format: "English sentence | Korean translation". IMPORTANT: The Korean translation must use ONLY Korean alphabet (한글). No Chinese characters, no Japanese, no Romanization. Pure Korean only.`,
+        `Create a short, memorable sentence with "${word}".${meaningContext} Format: "English sentence | Korean translation". IMPORTANT: The Korean translation must use ONLY Korean alphabet (한글). No Chinese characters, no Japanese, no Romanization. Pure Korean only.`,
       ];
       prompt = sentenceStyles[Math.floor(Math.random() * sentenceStyles.length)];
       maxTokens = 60;

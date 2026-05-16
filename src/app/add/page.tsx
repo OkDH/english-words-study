@@ -34,7 +34,7 @@ export default function AddPage() {
     }
 
     const [aiExample, phoneticResult, etymology] = await Promise.all([
-      generateExample(word.trim()),
+      generateExample(word.trim(), meaning.trim()),
       fetchPhonetic(word.trim()),
       fetchEtymology(word.trim()),
     ]);

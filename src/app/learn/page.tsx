@@ -44,6 +44,8 @@ function LearnContent() {
   const [showHint, setShowHint] = useState(false);
   const [generatingHintContent, setGeneratingHintContent] = useState(false);
   const [cardDirection, setCardDirection] = useState<'normal' | 'reverse'>('normal');
+  const [results, setResults] = useState<{ wordId: string; word: string; meaning: string; known: boolean }[]>([]);
+  const [showResults, setShowResults] = useState(false);
   const x = useMotionValue(0);
   const { speak, stop } = useTTS();
 
@@ -197,9 +199,11 @@ const handleSwipe = useCallback(
     async (known: boolean) => {
       if (!currentWord) return;
       const userId = localStorage.getItem("selectedUser") || "dong";
+      const oldLevel = currentWord.level;
+      let newLevel = oldLevel;
 
       if (learnMode === "review") {
-        const newLevel = known ? Math.min(currentWord.level + 1, 5) : 0;
+        newLevel = known ? Math.min(oldLevel + 1, 5) : 0;
         let minutes = REVIEW_INTERVALS[newLevel];
 
         if (!known) {
@@ -225,9 +229,19 @@ const handleSwipe = useCallback(
             ? { ...w, level: newLevel, next_review: nextReview.toISOString() }
             : w
         ));
+      } else {
+        newLevel = known ? oldLevel + 1 : oldLevel - 1;
+        newLevel = Math.max(0, Math.min(5, newLevel));
       }
 
-logLearning(currentWord.id, currentWord.word, known ? "learned" : "forgot");
+      setResults(prev => [...prev, {
+        wordId: currentWord.id,
+        word: currentWord.word,
+        meaning: currentWord.meaning,
+        known,
+      }]);
+
+      logLearning(currentWord.id, currentWord.word, known ? "learned" : "forgot");
       moveToNext();
     },
     [currentWord, learnMode, words]
@@ -240,7 +254,7 @@ logLearning(currentWord.id, currentWord.word, known ? "learned" : "forgot");
 
     if (!currentWord.ai_example) {
       try {
-        const example = await generateExample(currentWord.word);
+        const example = await generateExample(currentWord.word, currentWord.meaning);
         if (example) {
           await supabase
             .from("words")
@@ -270,13 +284,18 @@ logLearning(currentWord.id, currentWord.word, known ? "learned" : "forgot");
       return;
     }
 
-    if (currentIndex >= words.length - 1) {
-      router.push("/");
-    } else {
-      setCurrentIndex((prev) => prev + 1);
+    if (currentIndex < words.length - 1) {
+      setCurrentIndex(prev => prev + 1);
       setStep(1);
     }
   }
+
+  useEffect(() => {
+    if (showResults) return;
+    if (results.length > 0 && currentIndex >= words.length - 1) {
+      setShowResults(true);
+    }
+  }, [results.length, currentIndex, words.length, showResults]);
 
   function handleShowAnswer() {
     setStep(2);
@@ -307,6 +326,12 @@ logLearning(currentWord.id, currentWord.word, known ? "learned" : "forgot");
     } else {
       setShowHint(false);
       setHintEtymology(null);
+      setResults(prev => [...prev, {
+        wordId: currentWord.id,
+        word: currentWord.word,
+        meaning: currentWord.meaning,
+        known: false,
+      }]);
       moveToNext();
     }
   }
@@ -418,6 +443,62 @@ logLearning(currentWord.id, currentWord.word, known ? "learned" : "forgot");
           단어 추가하기
         </button>
       </div>
+    );
+  }
+
+if (showResults) {
+    const knownCount = results.filter(r => r.known).length;
+    const unknownCount = results.filter(r => !r.known).length;
+    const accuracy = results.length > 0 ? Math.round((knownCount / results.length) * 100) : 0;
+    const unknownWords = results.filter(r => !r.known);
+
+    return (
+      <main className="min-h-screen flex flex-col p-4">
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold text-center mb-6">학습 완료!</h2>
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="text-center p-4 bg-green-100 dark:bg-green-900 rounded-xl">
+                <div className="text-3xl font-bold text-green-600 dark:text-green-400">{knownCount}</div>
+                <div className="text-sm text-slate-500">알아요</div>
+              </div>
+              <div className="text-center p-4 bg-red-100 dark:bg-red-900 rounded-xl">
+                <div className="text-3xl font-bold text-red-600 dark:text-red-400">{unknownCount}</div>
+                <div className="text-sm text-slate-500">모르겠어요</div>
+              </div>
+            </div>
+
+            <div className="text-center mb-6">
+              <div className="text-4xl font-bold text-primary">{accuracy}%</div>
+              <div className="text-sm text-slate-500">정답률</div>
+            </div>
+
+            {unknownWords.length > 0 && (
+              <div className="mb-4">
+                <h3 className="font-bold mb-2">복습이 필요한 단어</h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {unknownWords.map((w) => (
+                    <div key={w.wordId} className="flex justify-between items-center p-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-sm">
+                      <div>
+                        <span className="font-semibold">{w.word}</span>
+                        <span className="ml-2 text-slate-500">{w.meaning}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => router.push("/")}
+              className="w-full bg-primary text-white py-4 rounded-xl font-bold text-lg"
+            >
+              홈으로
+            </button>
+          </div>
+        </div>
+      </main>
     );
   }
 
