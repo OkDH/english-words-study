@@ -306,6 +306,13 @@ const handleSwipe = useCallback(
 
   async function handleDontKnow() {
     if (!showHint) {
+      setResults(prev => [...prev, {
+        wordId: currentWord.id,
+        word: currentWord.word,
+        meaning: currentWord.meaning,
+        known: false,
+      }]);
+
       setGeneratingHintContent(true);
 
       let etymology = currentWord?.etymology || null;
@@ -326,12 +333,6 @@ const handleSwipe = useCallback(
     } else {
       setShowHint(false);
       setHintEtymology(null);
-      setResults(prev => [...prev, {
-        wordId: currentWord.id,
-        word: currentWord.word,
-        meaning: currentWord.meaning,
-        known: false,
-      }]);
       moveToNext();
     }
   }
